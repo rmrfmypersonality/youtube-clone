@@ -14,5 +14,5 @@ onMounted(async () => {
 </script>
 
 <template>
-  <main>API: {{ status }}</main>
+  <div>API: {{ status }}</div>
 </template>
