@@ -11,7 +11,7 @@ class Settings(BaseSettings):
 
     app_env: str = "dev"
     database_url: str  # обязательная: без неё приложение не стартует
-    secret_key: str = "dev-insecure-change-me"
+    secret_key: str = "SFLMbdvaHNIviaYhHJVhxOWfB7iCtD7I6scIJy-4vo4E9DSJ7gukrqSw0dvxw184"
     cookie_secure: bool = False
     access_token_ttl_minutes: int = 15
     refresh_token_ttl_days: int = 30
