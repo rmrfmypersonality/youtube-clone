@@ -4,3 +4,9 @@ sqlalchemy[asyncio]
 asyncpg
 alembic
 pydantic-settings
+argon2-cffi
+pyjwt
+email-validator
+pytest
+pytest-asyncio
+httpx
