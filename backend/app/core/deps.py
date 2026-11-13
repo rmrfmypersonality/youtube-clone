@@ -9,6 +9,7 @@ from app.core.security import decode_access_token
 from app.models import User
 from app.policies import roles as role_policy
 from app.repositories.users import UserRepository
+from app.storage import Storage, get_storage
 
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
 
@@ -55,3 +56,4 @@ async def require_admin(user: CurrentUser) -> User:
 
 ModeratorUser = Annotated[User, Depends(require_moderator)]
 AdminUser = Annotated[User, Depends(require_admin)]
+StorageDep = Annotated[Storage, Depends(get_storage)]
