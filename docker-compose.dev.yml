@@ -1,2 +1,23 @@
 services:
-  
+  postgres:
+    ports:
+      - "127.0.0.1:5432:5432"   # для DBeaver
+
+  api:
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+    environment:
+      WATCHFILES_FORCE_POLLING: "true"
+
+  frontend-dev:
+    build: ./frontend
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules   # чтобы bind-mount не затирал node_modules из образа
+    depends_on:
+      - api
