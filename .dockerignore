@@ -1,0 +1,10 @@
+.git
+.idea
+.vscode
+.venv
+.env
+backend
+seed_assets
+docs
+**/node_modules
+**/dist
