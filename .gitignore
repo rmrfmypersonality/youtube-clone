@@ -1,0 +1,21 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Secrets and local config
+.env
+
+# Runtime data
+media/
+pgdata/
+*.log
+
+# Node / frontend
+node_modules/
+dist/
+
+# IDE
+.idea/
+.vscode/
