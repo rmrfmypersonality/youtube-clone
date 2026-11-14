@@ -10,6 +10,7 @@ __pycache__/
 # Runtime data
 media/
 pgdata/
+tmp/
 *.log
 
 # Node / frontend

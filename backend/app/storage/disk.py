@@ -1,6 +1,7 @@
 import os
 from collections.abc import AsyncIterator
 from pathlib import Path
+from urllib.parse import quote
 
 import anyio
 
@@ -24,6 +25,10 @@ class DiskStorage(Storage):
         if for_write:
             path.parent.mkdir(parents=True, exist_ok=True)
         return path
+
+    def internal_url(self, key: str) -> str:
+        rel = self._resolve(key).relative_to(self.root).as_posix()
+        return f"/media/{quote(rel)}"
 
     async def save_stream(
         self, key: str, chunks: AsyncIterator[bytes], *, max_bytes: int
