@@ -9,7 +9,8 @@ export default defineConfig({
     // На Windows + Docker Desktop inotify через bind-mount не работает, нужен polling
     watch: { usePolling: true },
     proxy: {
-      '/api': 'http://api:8000',
+      // Через nginx, а не напрямую в api: только nginx умеет X-Accel-Redirect (раздача видео)
+      '/api': 'http://nginx',
       '/docs': 'http://api:8000',
       '/openapi.json': 'http://api:8000',
     },
