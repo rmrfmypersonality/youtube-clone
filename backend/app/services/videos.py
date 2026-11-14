@@ -4,12 +4,21 @@ from collections.abc import AsyncIterator
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
-from app.core.exceptions import Conflict, NotFound, PayloadTooLarge, UnsupportedMedia
-from app.models import Job, User, Video, VideoStatus
+from app.core.exceptions import (
+    AppError,
+    Conflict,
+    NotFound,
+    PayloadTooLarge,
+    UnsupportedMedia,
+)
+from app.models import Channel, Job, User, Video, VideoStatus, Visibility
 from app.policies import videos as video_policy
 from app.repositories.jobs import JobRepository
+from app.repositories.users import UserRepository
+from app.repositories.video_shares import ShareRepository
 from app.repositories.videos import VideoRepository
-from app.schemas.videos import VideoCreate
+from app.schemas.auth import ChannelBrief
+from app.schemas.videos import Quality, VideoCreate, VideoDetailOut, VideoOut
 from app.services.video_files import HEAD_SIZE, sniff_container
 from app.storage import Storage, StorageLimitExceeded
 
@@ -40,6 +49,10 @@ class VideoService:
         self.storage = storage
         self.videos = VideoRepository(session)
         self.jobs = JobRepository(session)
+        self.shares = ShareRepository(session)
+        self.users = UserRepository(session)
+
+    # --- создание и загрузка ---
 
     async def create(self, user: User, data: VideoCreate) -> Video:
         video = Video(
@@ -51,13 +64,6 @@ class VideoService:
         self.videos.add(video)
         await self.session.commit()
         await self.session.refresh(video)
-        return video
-
-    async def get_manageable(self, user: User, video_id: int) -> Video:
-        # Пока видят только владелец и админ. На этапе 4 заменим на can_view_video.
-        video = await self.videos.get(video_id)
-        if video is None or not video_policy.can_edit_video(user, video):
-            raise NotFound(NOT_FOUND)
         return video
 
     async def upload_file(
@@ -98,3 +104,78 @@ class VideoService:
 
         await self.session.refresh(video)
         return video
+
+    # --- просмотр ---
+
+    async def _can_view(self, user: User | None, video: Video) -> bool:
+        is_shared = False
+        if (
+            user is not None
+            and video.visibility == Visibility.private
+            and not video_policy.is_owner(user, video)
+        ):
+            is_shared = await self.shares.exists(video.id, user.id)
+        return video_policy.can_view_video(user, video, is_shared=is_shared)
+
+    async def _visible(self, user: User | None, video_id: int) -> tuple[Video, Channel]:
+        """Единая точка входа для всех чтений. Нет видео и нет прав выглядят одинаково: 404."""
+        found = await self.videos.get_with_channel(video_id)
+        if found is None or not await self._can_view(user, found[0]):
+            raise NotFound(NOT_FOUND)
+        return found
+
+    async def get_visible(self, user: User | None, video_id: int) -> VideoDetailOut:
+        video, channel = await self._visible(user, video_id)
+        return VideoDetailOut(
+            **VideoOut.model_validate(video).model_dump(),
+            channel=ChannelBrief.model_validate(channel),
+        )
+
+    async def stream_target(self, user: User | None, video_id: int, quality: Quality) -> str:
+        video, _ = await self._visible(user, video_id)
+        key = video.path_720 if quality == "720" else video.path_360
+        if video.status != VideoStatus.ready or not key:
+            raise NotFound("Файл видео недоступен")
+        return self.storage.internal_url(key)
+
+    async def thumbnail_target(self, user: User | None, video_id: int) -> str:
+        video, _ = await self._visible(user, video_id)
+        if video.status != VideoStatus.ready or not video.thumbnail_path:
+            raise NotFound("Превью недоступно")
+        return self.storage.internal_url(video.thumbnail_path)
+
+    async def record_view(self, user: User | None, video_id: int) -> int:
+        video, _ = await self._visible(user, video_id)
+        if video.status != VideoStatus.ready:
+            raise Conflict("Видео ещё не готово")
+        count = await self.videos.increment_views(video.id)
+        await self.session.commit()
+        return count or 0
+
+    # --- доступ к приватным видео ---
+
+    async def _owned(self, user: User, video_id: int) -> Video:
+        video = await self.videos.get(video_id)
+        if video is None or not video_policy.can_manage_shares(user, video):
+            raise NotFound(NOT_FOUND)
+        return video
+
+    async def list_shares(self, user: User, video_id: int) -> list[User]:
+        video = await self._owned(user, video_id)
+        return await self.shares.list_users(video.id)
+
+    async def add_share(self, user: User, video_id: int, username: str) -> User:
+        video = await self._owned(user, video_id)
+        target = await self.users.get_by_username(username)
+        if target is None or not target.is_active:
+            raise NotFound("Пользователь не найден")
+        if target.id == user.id:
+            raise AppError("Нельзя выдать доступ самому себе")
+        await self.shares.add(video.id, target.id)
+        await self.session.commit()
+        return target
+
+    async def remove_share(self, user: User, video_id: int, target_user_id: int) -> None:
+        video = await self._owned(user, video_id)
+        await self.shares.remove(video.id, target_user_id)
+        await self.session.commit()
