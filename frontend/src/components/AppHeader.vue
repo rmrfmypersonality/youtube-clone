@@ -31,6 +31,7 @@ async function onLogout() {
 
     <div class="right">
       <template v-if="state.ready">
+        <RouterLink v-if="state.user" to="/upload" class="btn upload-btn">Загрузить</RouterLink>
         <div v-if="state.user" class="user">
           <button class="avatar" type="button" @click="menuOpen = !menuOpen">
             {{ initial }}
@@ -130,5 +131,8 @@ async function onLogout() {
 }
 .menu-item:hover {
   background: var(--surface-hover);
+}
+.upload-btn {
+  margin-right: 12px;
 }
 </style>

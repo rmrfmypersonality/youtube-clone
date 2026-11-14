@@ -3,6 +3,14 @@ const BASE = '/api'
 // На эти пути 401 означает «неверные данные», а не «протух access», refresh не пробуем
 const NO_REFRESH = new Set(['/auth/login', '/auth/register', '/auth/refresh', '/auth/logout'])
 
+const STATUS_MESSAGES = {
+  413: 'Файл слишком большой',
+  429: 'Слишком много запросов, попробуйте позже',
+  502: 'Сервер недоступен',
+  503: 'Сервер недоступен',
+  504: 'Сервер не ответил вовремя',
+}
+
 export class ApiError extends Error {
   constructor(status, data) {
     super(extractMessage(status, data))
@@ -15,7 +23,7 @@ function extractMessage(status, data) {
   const detail = data?.detail
   if (typeof detail === 'string') return detail
   if (Array.isArray(detail) && detail.length) return detail[0].msg
-  return `Ошибка ${status}`
+  return STATUS_MESSAGES[status] ?? `Ошибка ${status}`
 }
 
 let onAuthLost = () => {}
@@ -58,6 +66,34 @@ async function request(method, path, body, retry = true) {
   return data
 }
 
+// Загрузка файла через XHR ради upload.onprogress (у fetch прогресса отправки нет).
+// Возвращает { promise, abort }.
+export function uploadVideoFile(videoId, file, onProgress) {
+  const xhr = new XMLHttpRequest()
+  const promise = new Promise((resolve, reject) => {
+    xhr.open('PUT', `${BASE}/videos/${videoId}/file`)
+    xhr.withCredentials = true
+    xhr.setRequestHeader('Content-Type', 'application/octet-stream')
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) onProgress(e.loaded / e.total)
+    }
+    xhr.onload = () => {
+      let data = null
+      try {
+        data = JSON.parse(xhr.responseText)
+      } catch {
+        /* не JSON (например, HTML-страница ошибки nginx) */
+      }
+      if (xhr.status >= 200 && xhr.status < 300) resolve(data)
+      else reject(new ApiError(xhr.status, data))
+    }
+    xhr.onerror = () => reject(new ApiError(0, { detail: 'Ошибка сети при загрузке' }))
+    xhr.onabort = () => reject(new ApiError(0, { detail: 'Загрузка отменена' }))
+    xhr.send(file)
+  })
+  return { promise, abort: () => xhr.abort() }
+}
+
 export const api = {
   health: () => request('GET', '/health'),
   auth: {
@@ -65,5 +101,9 @@ export const api = {
     login: (payload) => request('POST', '/auth/login', payload),
     register: (payload) => request('POST', '/auth/register', payload),
     logout: () => request('POST', '/auth/logout'),
+  },
+  videos: {
+    create: (payload) => request('POST', '/videos', payload),
+    get: (id) => request('GET', `/videos/${id}`),
   },
 }
