@@ -138,15 +138,12 @@ async def test_admin_cannot_upload_file_for_others(make_client, db):
     assert (await put_file(root, video["id"], VALID)).status_code == 404
 
 
-async def test_get_video_idor(make_client, client, db):
-    alice, bob, root = await make_client("alice"), await make_client("bob"), await make_client("root")
-    await db.execute(update(User).where(User.username == "root").values(role=Role.admin))
-    await db.commit()
-    video = await create_video(alice)
+async def test_get_video_idor(make_client, client):
+    alice, bob = await make_client("alice"), await make_client("bob")
+    video = await create_video(alice)  # private, pending
     url = f"/api/videos/{video['id']}"
 
     assert (await alice.get(url)).status_code == 200
-    assert (await root.get(url)).status_code == 200
     assert (await bob.get(url)).status_code == 404  # не 403: не выдаём факт существования
-    assert (await client.get(url)).status_code == 401
+    assert (await client.get(url)).status_code == 404
     assert (await alice.get("/api/videos/99999")).status_code == 404

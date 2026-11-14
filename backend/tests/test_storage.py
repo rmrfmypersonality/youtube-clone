@@ -40,3 +40,9 @@ async def test_delete_missing_file_is_noop(tmp_path):
 def test_path_traversal_rejected(tmp_path, key):
     with pytest.raises(ValueError):
         DiskStorage(tmp_path).local_path(key)
+
+def test_internal_url(tmp_path):
+    storage = DiskStorage(tmp_path)
+    assert storage.internal_url("videos/1/720.mp4") == "/media/videos/1/720.mp4"
+    with pytest.raises(ValueError):
+        storage.internal_url("../etc/passwd")

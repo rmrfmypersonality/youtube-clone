@@ -5,6 +5,8 @@ import subprocess
 import tempfile
 from pathlib import Path
 
+
+
 from sqlalchemy.engine import make_url
 
 # Это должно выполниться ДО импорта приложения: engine и настройки создаются при импорте.
@@ -21,12 +23,12 @@ import pytest  # noqa: E402
 from alembic import command  # noqa: E402
 from alembic.config import Config  # noqa: E402
 from httpx import ASGITransport, AsyncClient  # noqa: E402
-from sqlalchemy import text  # noqa: E402
+from sqlalchemy import select, text, update  # noqa: E402
 from sqlalchemy.ext.asyncio import create_async_engine  # noqa: E402
 
 from app.core.database import SessionLocal, engine  # noqa: E402
 from app.main import app  # noqa: E402
-from app.models import Base  # noqa: E402
+from app.models import Base, Role, User, Video, VideoStatus, Visibility   # noqa: E402
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
 PASSWORD = "correct-horse-battery"
@@ -107,3 +109,42 @@ def sample_video(tmp_path_factory) -> bytes:
         check=True,
     )
     return path.read_bytes()
+
+@pytest.fixture
+async def set_role(db):
+    async def _set(username: str, role: Role) -> None:
+        await db.execute(update(User).where(User.username == username).values(role=role))
+        await db.commit()
+
+    return _set
+
+
+@pytest.fixture
+async def make_video(db):
+    """Создаёт видео напрямую в БД (минуя загрузку и воркер). Файлы на диске не нужны."""
+
+    async def factory(
+        owner: str,
+        *,
+        visibility: Visibility = Visibility.public,
+        status: VideoStatus = VideoStatus.ready,
+        hidden: bool = False,
+    ) -> Video:
+        owner_id = (await db.execute(select(User.id).where(User.username == owner))).scalar_one()
+        video = Video(
+            owner_id=owner_id,
+            title="Test video",
+            visibility=visibility,
+            status=status,
+            hidden_by_moderation=hidden,
+        )
+        db.add(video)
+        await db.flush()
+        if status == VideoStatus.ready:
+            base = f"videos/{video.id}"
+            video.path_720, video.path_360 = f"{base}/720.mp4", f"{base}/360.mp4"
+            video.thumbnail_path, video.duration_seconds = f"{base}/thumb.jpg", 10.0
+        await db.commit()
+        return video
+
+    return factory
