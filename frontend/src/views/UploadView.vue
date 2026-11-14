@@ -136,7 +136,12 @@ function again() {
 
       <template v-else-if="upload.state.phase === 'ready'">
         <p>Видео обработано и готово.</p>
-        <button class="btn btn-primary" type="button" @click="again">Загрузить ещё</button>
+        <div class="actions">
+          <RouterLink :to="`/watch/${upload.state.video.id}`" class="btn btn-primary">
+            Смотреть
+          </RouterLink>
+          <button class="btn" type="button" @click="again">Загрузить ещё</button>
+        </div>
       </template>
 
       <template v-else-if="upload.state.phase === 'failed'">
@@ -218,5 +223,9 @@ h2 {
 }
 .hint {
   color: var(--text-secondary);
+}
+.actions {
+  display: flex;
+  gap: 8px;
 }
 </style>

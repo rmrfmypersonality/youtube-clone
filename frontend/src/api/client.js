@@ -33,7 +33,7 @@ export function setAuthLostHandler(fn) {
 
 // Одновременные 401 делят один запрос на refresh, иначе ротация сломает сама себя
 let refreshing = null
-function refreshSession() {
+export function refreshSession() {
   if (!refreshing) {
     refreshing = fetch(`${BASE}/auth/refresh`, { method: 'POST', credentials: 'include' })
       .then((res) => res.ok)
@@ -105,5 +105,6 @@ export const api = {
   videos: {
     create: (payload) => request('POST', '/videos', payload),
     get: (id) => request('GET', `/videos/${id}`),
+    view: (id) => request('POST', `/videos/${id}/view`),
   },
 }
