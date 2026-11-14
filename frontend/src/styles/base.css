@@ -37,7 +37,9 @@ a {
   color: var(--text-secondary);
 }
 
-.field input {
+.field input,
+.field textarea,
+.field select {
   width: 100%;
   padding: 10px 12px;
   background: var(--bg);
@@ -47,9 +49,22 @@ a {
   font: inherit;
 }
 
-.field input:focus {
+.field textarea {
+  min-height: 110px;
+  resize: vertical;
+}
+
+.field input:focus,
+.field textarea:focus,
+.field select:focus {
   outline: none;
   border-color: var(--link);
+}
+
+.field input:disabled,
+.field textarea:disabled,
+.field select:disabled {
+  opacity: 0.6;
 }
 
 .btn {

@@ -25,3 +25,12 @@ class NotFound(AppError):
 class Conflict(AppError):
     status_code = 409
     default_detail = "Конфликт данных"
+
+class PayloadTooLarge(AppError):
+    status_code = 413
+    default_detail = "Файл слишком большой"
+
+
+class UnsupportedMedia(AppError):
+    status_code = 415
+    default_detail = "Неподдерживаемый тип файла"

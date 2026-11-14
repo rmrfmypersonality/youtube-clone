@@ -15,6 +15,12 @@ class Settings(BaseSettings):
     cookie_secure: bool = False
     access_token_ttl_minutes: int = 15
     refresh_token_ttl_days: int = 30
+    media_root: str = "/data/media"
+    max_upload_mb: int = 500  # держи в синхроне с client_max_body_size в nginx/nginx.conf
+    job_max_attempts: int = 3
+    job_stale_seconds: int = 2400
+    ffmpeg_step_timeout_seconds: int = 1800
+    worker_poll_seconds: float = 2.0
 
     @model_validator(mode="after")
     def _check_prod_secret(self) -> "Settings":
@@ -22,6 +28,10 @@ class Settings(BaseSettings):
         if self.app_env == "prod" and weak:
             raise ValueError("SECRET_KEY must be a strong random value when APP_ENV=prod")
         return self
+
+    @property
+    def max_upload_bytes(self) -> int:
+        return self.max_upload_mb * 1024 * 1024
 
 
 @lru_cache

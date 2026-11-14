@@ -7,14 +7,22 @@ setAuthLostHandler(() => {
   state.user = null
 })
 
-async function init() {
-  try {
-    state.user = await api.auth.me()
-  } catch {
-    state.user = null
-  } finally {
-    state.ready = true
+let initPromise = null
+function init() {
+  if (!initPromise) {
+    initPromise = api.auth
+      .me()
+      .then((user) => {
+        state.user = user
+      })
+      .catch(() => {
+        state.user = null
+      })
+      .finally(() => {
+        state.ready = true
+      })
   }
+  return initPromise
 }
 
 async function login(email, password) {

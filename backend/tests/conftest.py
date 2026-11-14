@@ -1,14 +1,19 @@
 import asyncio
 import os
+import shutil
+import subprocess
+import tempfile
 from pathlib import Path
 
 from sqlalchemy.engine import make_url
 
-# Это должно выполниться ДО импорта приложения: engine создаётся при импорте.
-# Тесты всегда идут в отдельную БД <имя>_test, рабочая БД не затрагивается.
+# Это должно выполниться ДО импорта приложения: engine и настройки создаются при импорте.
+# Тесты всегда идут в отдельную БД <имя>_test и во временную папку для файлов.
 _base_url = make_url(os.environ["DATABASE_URL"])
 _test_db_name = f"{_base_url.database}_test"
+_media_root = tempfile.mkdtemp(prefix="yt-media-test-")
 os.environ["DATABASE_URL"] = _base_url.set(database=_test_db_name).render_as_string(hide_password=False)
+os.environ["MEDIA_ROOT"] = _media_root
 os.environ["APP_ENV"] = "test"
 os.environ["COOKIE_SECURE"] = "false"
 
@@ -24,6 +29,7 @@ from app.main import app  # noqa: E402
 from app.models import Base  # noqa: E402
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
+PASSWORD = "correct-horse-battery"
 
 
 async def _recreate_test_db() -> None:
@@ -48,6 +54,8 @@ async def clean_db():
     tables = ", ".join(f'"{t.name}"' for t in Base.metadata.sorted_tables)
     async with engine.begin() as conn:
         await conn.execute(text(f"TRUNCATE {tables} RESTART IDENTITY CASCADE"))
+    for child in Path(_media_root).iterdir():
+        shutil.rmtree(child, ignore_errors=True)
 
 
 @pytest.fixture
@@ -57,6 +65,45 @@ async def client():
 
 
 @pytest.fixture
+async def make_client():
+    """Фабрика независимых клиентов (у каждого свои куки). С username сразу регистрирует юзера."""
+    clients: list[AsyncClient] = []
+
+    async def factory(username: str | None = None) -> AsyncClient:
+        c = AsyncClient(transport=ASGITransport(app=app), base_url="http://test")
+        clients.append(c)
+        if username:
+            r = await c.post(
+                "/api/auth/register",
+                json={"email": f"{username}@example.com", "username": username, "password": PASSWORD},
+            )
+            assert r.status_code == 201, r.text
+        return c
+
+    yield factory
+    for c in clients:
+        await c.aclose()
+
+
+@pytest.fixture
 async def db():
     async with SessionLocal() as session:
         yield session
+
+
+@pytest.fixture(scope="session")
+def sample_video(tmp_path_factory) -> bytes:
+    """Настоящее 2-секундное видео 640x360 со звуком, сгенерированное ffmpeg."""
+    if shutil.which("ffmpeg") is None:
+        pytest.skip("ffmpeg не установлен")
+    path = tmp_path_factory.mktemp("sample") / "sample.mp4"
+    subprocess.run(
+        [
+            "ffmpeg", "-hide_banner", "-loglevel", "error",
+            "-f", "lavfi", "-i", "testsrc=duration=2:size=640x360:rate=24",
+            "-f", "lavfi", "-i", "sine=frequency=440:duration=2",
+            "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", "-shortest", str(path),
+        ],
+        check=True,
+    )
+    return path.read_bytes()
