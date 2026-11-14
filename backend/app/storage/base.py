@@ -22,3 +22,7 @@ class Storage(ABC):
     @abstractmethod
     def local_path(self, key: str, *, for_write: bool = False) -> Path:
         """Локальный путь для ffmpeg. S3-реализация скачивала бы файл во временную папку."""
+
+    @abstractmethod
+    def internal_url(self, key: str) -> str:
+        """Путь для X-Accel-Redirect. S3-реализация вернула бы presigned URL."""

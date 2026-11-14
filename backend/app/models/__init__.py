@@ -4,6 +4,7 @@ from app.models.job import Job, JobStatus
 from app.models.refresh_token import RefreshToken
 from app.models.user import Role, User
 from app.models.video import Video, VideoStatus, Visibility
+from app.models.video_share import VideoShare
 
 __all__ = [
     "Base",
@@ -14,6 +15,7 @@ __all__ = [
     "Role",
     "User",
     "Video",
+    "VideoShare",
     "VideoStatus",
     "Visibility",
 ]
