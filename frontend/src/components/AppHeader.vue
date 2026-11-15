@@ -62,6 +62,8 @@ async function onLogout() {
               <div class="menu-name">{{ state.user.channel.name }}</div>
               <div class="menu-handle">@{{ state.user.channel.handle }}</div>
               <div v-if="roleLabel" class="menu-role">{{ roleLabel }}</div>
+              <RouterLink class="menu-item" :to="`/@${state.user.channel.handle}`" @click="menuOpen = false">Мой канал</RouterLink>
+              <RouterLink class="menu-item" to="/studio" @click="menuOpen = false">Мои видео</RouterLink>
             </div>
             <button class="menu-item" type="button" @click="onLogout">Выйти</button>
           </div>

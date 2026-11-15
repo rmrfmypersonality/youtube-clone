@@ -113,10 +113,18 @@ export const api = {
   },
   videos: {
     list: (cursor) => request('GET', `/videos${qs({ cursor })}`),
+    mine: (cursor) => request('GET', `/videos/mine${qs({ cursor })}`),
     create: (payload) => request('POST', '/videos', payload),
     get: (id) => request('GET', `/videos/${id}`),
+    update: (id, payload) => request('PATCH', `/videos/${id}`, payload),
+    remove: (id) => request('DELETE', `/videos/${id}`),
     view: (id) => request('POST', `/videos/${id}/view`),
     react: (id, value) => request('PUT', `/videos/${id}/reaction`, { value }),
+    shares: {
+      list: (id) => request('GET', `/videos/${id}/shares`),
+      add: (id, username) => request('POST', `/videos/${id}/shares`, { username }),
+      remove: (id, userId) => request('DELETE', `/videos/${id}/shares/${userId}`),
+    },
   },
   search: (q, cursor) => request('GET', `/search${qs({ q, cursor })}`),
   comments: {
@@ -125,5 +133,22 @@ export const api = {
     create: (videoId, payload) => request('POST', `/videos/${videoId}/comments`, payload),
     replies: (id, cursor) => request('GET', `/comments/${id}/replies${qs({ cursor })}`),
     remove: (id) => request('DELETE', `/comments/${id}`),
+  },
+  channels: {
+    get: (handle) => request('GET', `/channels/${handle}`),
+    videos: (handle, cursor) => request('GET', `/channels/${handle}/videos${qs({ cursor })}`),
+    playlists: (handle) => request('GET', `/channels/${handle}/playlists`),
+    update: (payload) => request('PATCH', '/channels/me', payload),
+    subscribe: (handle) => request('PUT', `/channels/${handle}/subscription`),
+    unsubscribe: (handle) => request('DELETE', `/channels/${handle}/subscription`),
+  },
+  playlists: {
+    mine: (videoId) => request('GET', `/playlists/mine${qs({ video_id: videoId })}`),
+    create: (payload) => request('POST', '/playlists', payload),
+    get: (id) => request('GET', `/playlists/${id}`),
+    update: (id, payload) => request('PATCH', `/playlists/${id}`, payload),
+    remove: (id) => request('DELETE', `/playlists/${id}`),
+    addItem: (id, videoId) => request('PUT', `/playlists/${id}/items/${videoId}`),
+    removeItem: (id, videoId) => request('DELETE', `/playlists/${id}/items/${videoId}`),
   },
 }

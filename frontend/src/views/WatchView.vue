@@ -3,8 +3,10 @@ import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { api } from '../api/client'
 import { useAuth } from '../composables/useAuth'
-import { formatRelative, formatViews } from '../composables/format'
+import { formatRelative, formatViews, formatSubscribers } from '../composables/format'
 import CommentsSection from '../components/CommentsSection.vue'
+import PlaylistMenu from '../components/PlaylistMenu.vue'
+import SubscribeButton from '../components/SubscribeButton.vue'
 
 const QUALITIES = ['720', '360']
 const VISIBILITY_LABELS = { unlisted: 'Доступ по ссылке', private: 'Ограниченный доступ' }
@@ -105,6 +107,11 @@ function setQuality(q) {
     { once: true },
   )
 }
+
+function onSubscription(res) {
+  video.value.is_subscribed = res.subscribed
+  video.value.subscribers_count = res.subscribers_count
+}
 </script>
 
 <template>
@@ -157,11 +164,21 @@ function setQuality(q) {
       </p>
 
       <div class="channel">
-        <span class="avatar">{{ video.channel.name[0]?.toUpperCase() }}</span>
-        <div>
-          <div class="channel-name">{{ video.channel.name }}</div>
-          <div class="muted">@{{ video.channel.handle }}</div>
+        <RouterLink :to="`/@${video.channel.handle}`" class="avatar">
+          {{ video.channel.name[0]?.toUpperCase() }}
+        </RouterLink>
+        <div class="channel-info">
+          <RouterLink :to="`/@${video.channel.handle}`" class="channel-name">
+            {{ video.channel.name }}
+          </RouterLink>
+          <div class="muted">{{ formatSubscribers(video.subscribers_count) }}</div>
         </div>
+        <SubscribeButton
+          v-if="!isOwner"
+          :handle="video.channel.handle"
+          :subscribed="video.is_subscribed"
+          @changed="onSubscription"
+        />
       </div>
 
       <div v-if="video.status === 'ready'" class="actions">
@@ -183,6 +200,7 @@ function setQuality(q) {
         >
           👎
         </button>
+        <PlaylistMenu :video-id="video.id" />
       </div>
       <p v-if="reactError" class="error" role="alert">{{ reactError }}</p>
 
@@ -284,7 +302,13 @@ function setQuality(q) {
   font-weight: 500;
 }
 .channel-name {
+  display: block;
+  color: var(--text);
   font-weight: 500;
+}
+.channel-info {
+  min-width: 0;
+  margin-right: 12px;
 }
 .description {
   padding: 12px;

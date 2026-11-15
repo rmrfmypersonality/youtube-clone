@@ -48,3 +48,13 @@ export function formatDuration(seconds) {
   const pad = (n) => String(n).padStart(2, '0')
   return h ? `${h}:${pad(m)}:${pad(s % 60)}` : `${m}:${pad(s % 60)}`
 }
+
+export function formatSubscribers(n) {
+  if (n < 1000) return `${n} ${plural(n, 'подписчик', 'подписчика', 'подписчиков')}`
+  if (n < 1_000_000) {
+    const k = n < 10_000 ? Math.floor(n / 100) / 10 : Math.floor(n / 1000)
+    return `${String(k).replace('.', ',')} тыс. подписчиков`
+  }
+  const m = n < 10_000_000 ? Math.floor(n / 100_000) / 10 : Math.floor(n / 1_000_000)
+  return `${String(m).replace('.', ',')} млн подписчиков`
+}
