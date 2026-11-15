@@ -9,6 +9,8 @@ import SearchView from '../views/SearchView.vue'
 import StudioView from '../views/StudioView.vue'
 import UploadView from '../views/UploadView.vue'
 import WatchView from '../views/WatchView.vue'
+import AdminView from '../views/AdminView.vue'
+import ModerationView from '../views/ModerationView.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -22,6 +24,8 @@ const router = createRouter({
     { path: '/search', name: 'search', component: SearchView },
     { path: '/playlist/:id(\\d+)', name: 'playlist', component: PlaylistView },
     { path: '/@:handle/:tab(videos|playlists)?', name: 'channel', component: ChannelView },
+    { path: '/moderation', name: 'moderation', component: ModerationView, meta: { requiresAuth: true, role: 'moderator' },},
+    { path: '/admin', name: 'admin', component: AdminView, meta: { requiresAuth: true, role: 'admin' },},
   ],
 })
 
@@ -30,6 +34,11 @@ router.beforeEach(async (to) => {
   const { state, init } = useAuth()
   await init() // ждём, пока выяснится, залогинен ли пользователь
   if (!state.user) return { name: 'login', query: { next: to.fullPath } }
+  const role = state.user.role
+  if (to.meta.role === 'admin' && role !== 'admin') return { name: 'home' }
+  if (to.meta.role === 'moderator' && !['moderator', 'admin'].includes(role)) {
+    return { name: 'home' }
+  }
   return true
 })
 
