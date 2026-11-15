@@ -2,11 +2,7 @@ from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Channel, Video, VideoStatus, Visibility
-
-
-def _escape_like(value: str) -> str:
-    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-
+from app.core.sql import escape_like
 
 class VideoRepository:
     def __init__(self, session: AsyncSession) -> None:
@@ -72,7 +68,7 @@ class VideoRepository:
             stmt = stmt.where(Video.id < cursor)
         if query:
             # ILIKE по колонке, чтобы работал GIN-индекс pg_trgm; wildcard'ы пользователя экранируем
-            stmt = stmt.where(Video.title.ilike(f"%{_escape_like(query)}%", escape="\\"))
+            stmt = stmt.where(Video.title.ilike(f"%{escape_like(query)}%", escape="\\"))
         rows = (await self.session.execute(stmt)).all()
         return [(r.Video, r.Channel) for r in rows]
 
@@ -82,3 +78,8 @@ class VideoRepository:
         if cursor is not None:
             stmt = stmt.where(Video.id < cursor)
         return list((await self.session.execute(stmt)).scalars())
+
+    async def get_many(self, ids: set[int]) -> list[Video]:
+        if not ids:
+            return []
+        return list((await self.session.execute(select(Video).where(Video.id.in_(ids)))).scalars())

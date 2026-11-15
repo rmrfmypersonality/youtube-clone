@@ -5,6 +5,7 @@ from app.models import Playlist, User, VideoStatus
 from app.policies import playlists as policy
 from app.repositories.channels import ChannelRepository
 from app.repositories.playlists import PlaylistRepository
+from app.repositories.audit import AuditRepository
 from app.schemas.auth import ChannelBrief
 from app.schemas.playlists import (
     PlaylistCreate,
@@ -42,6 +43,7 @@ class PlaylistService:
         self.playlists = PlaylistRepository(session)
         self.channels = ChannelRepository(session)
         self.access = VideoAccess(session)
+        self.audit = AuditRepository(session)
 
     async def _viewable(self, user: User | None, playlist_id: int) -> Playlist:
         playlist = await self.playlists.get(playlist_id)
@@ -85,6 +87,11 @@ class PlaylistService:
 
     async def update(self, user: User, playlist_id: int, data: PlaylistUpdate) -> PlaylistOut:
         playlist = await self._editable(user, playlist_id)
+        if not policy.is_owner(user, playlist):  # действие админа над чужим
+            self.audit.log(
+                user, "playlist.update", "playlist", playlist.id,
+                {"owner_id": playlist.owner_id, "title": playlist.title},
+            )
         if data.title is not None:
             playlist.title = data.title
         if data.description is not None:
@@ -96,6 +103,11 @@ class PlaylistService:
 
     async def delete(self, user: User, playlist_id: int) -> None:
         playlist = await self._editable(user, playlist_id)
+        if not policy.is_owner(user, playlist):  # действие админа над чужим
+            self.audit.log(
+                user, "playlist.delete", "playlist", playlist.id,
+                {"owner_id": playlist.owner_id, "title": playlist.title},
+            )
         await self.session.delete(playlist)  # элементы удалит каскад в БД
         await self.session.commit()
 

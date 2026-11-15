@@ -20,6 +20,7 @@ from app.repositories.likes import LikeRepository
 from app.repositories.users import UserRepository
 from app.repositories.video_shares import ShareRepository
 from app.repositories.videos import VideoRepository
+from app.repositories.audit import AuditRepository
 from app.schemas.auth import ChannelBrief
 from app.repositories.subscriptions import SubscriptionRepository
 from app.schemas.videos import (
@@ -66,6 +67,7 @@ class VideoService:
         self.users = UserRepository(session)
         self.likes = LikeRepository(session)
         self.access = VideoAccess(session)
+        self.audit = AuditRepository(session)
 
     # --- создание и загрузка ---
 
@@ -209,19 +211,29 @@ class VideoService:
 
     async def update(self, user: User, video_id: int, data: VideoUpdate) -> Video:
         video = await self._editable(user, video_id)
-        if data.title is not None:
-            video.title = data.title
-        if data.description is not None:
-            video.description = data.description
-        if data.visibility is not None:
-            video.visibility = data.visibility
+        changed: list[str] = []
+        for field in ("title", "description", "visibility"):
+            value = getattr(data, field)
+            if value is not None and value != getattr(video, field):
+                setattr(video, field, value)
+                changed.append(field)
+        if changed and not video_policy.is_owner(user, video):  # правка админом чужого
+            self.audit.log(
+                user, "video.update", "video", video.id,
+                {"owner_id": video.owner_id, "changed": changed},
+            )
         await self.session.commit()
         return video
 
     async def delete(self, user: User, video_id: int) -> None:
         video = await self._editable(user, video_id)
         original = video.original_path
-        await self.session.delete(video)  # комментарии, лайки, шеры, задачи и т.д. удалит каскад
+        if not video_policy.is_owner(user, video):  # удаление админом чужого
+            self.audit.log(
+                user, "video.delete", "video", video.id,
+                {"title": video.title, "owner_id": video.owner_id},
+            )
+        await self.session.delete(video)  # комментарии, лайки, шеры, задачи, жалобы удалит каскад
         await self.session.commit()
         try:
             if original:

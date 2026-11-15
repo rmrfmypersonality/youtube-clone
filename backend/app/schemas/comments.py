@@ -30,6 +30,7 @@ class CommentOut(BaseModel):
     created_at: datetime
     author: CommentAuthor
     reply_count: int
+    hidden_by_moderation: bool = False
 
 
 class CommentPage(BaseModel):
