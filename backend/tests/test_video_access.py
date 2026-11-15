@@ -56,9 +56,7 @@ async def test_unlisted_video_available_by_link(make_client, client, make_video)
 async def test_private_video_only_for_owner_and_shared(
     make_client, client, make_video, method, template
 ):
-    alice = await make_client("alice")
-    bob = await make_client("bob")
-    carol = await make_client("carol")
+    alice, bob, carol = await make_client("alice"), await make_client("bob"), await make_client("carol")
     video = await make_video("alice", visibility=Visibility.private)
     assert (await share(alice, video.id, "bob")).status_code == 201
 

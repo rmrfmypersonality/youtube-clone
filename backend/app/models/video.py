@@ -12,6 +12,7 @@ from sqlalchemy import (
     String,
     false,
     func,
+    Index,
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -41,6 +42,12 @@ class Video(Base):
         ),
         CheckConstraint(
             "visibility IN ('public', 'unlisted', 'private')", name="visibility_valid"
+        ),
+        Index(
+            "ix_videos_title_trgm",
+            "title",
+            postgresql_using="gin",
+            postgresql_ops={"title": "gin_trgm_ops"},
         ),
     )
 
