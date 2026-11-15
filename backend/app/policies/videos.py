@@ -23,10 +23,9 @@ def can_view_video(user: User | None, video: Video, *, is_shared: bool = False) 
     """is_shared: есть ли пользователь в video_shares (считает сервис, политика остаётся чистой)."""
     if is_owner(user, video):
         return True
-    if video.hidden_by_moderation:
-        return can_moderate(user)
-    if video.status != VideoStatus.ready:
+    # Приватность проверяется первой: скрытие модератором доступа к приватному не открывает
+    if video.visibility == Visibility.private and not (user is not None and is_shared):
         return False
-    if video.visibility in (Visibility.public, Visibility.unlisted):
-        return True
-    return user is not None and is_shared
+    if video.hidden_by_moderation and not can_moderate(user):
+        return False
+    return video.status == VideoStatus.ready

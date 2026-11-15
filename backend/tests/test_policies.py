@@ -127,3 +127,11 @@ def test_can_add_video_to_playlist():
     assert not playlist_policy.can_add_video(STRANGER, _video(Visibility.unlisted))
     assert not playlist_policy.can_add_video(STRANGER, _video(Visibility.private))
     assert not playlist_policy.can_add_video(STRANGER, _video(Visibility.public, hidden=True))
+
+def test_moderator_cannot_view_hidden_private_video():
+    video = _video(Visibility.private, hidden=True)
+    for viewer in (None, STRANGER, MODERATOR, ADMIN):
+        assert not video_policy.can_view_video(viewer, video)
+    assert video_policy.can_view_video(OWNER, video)
+    assert video_policy.can_view_video(MODERATOR, video, is_shared=True)
+    assert not video_policy.can_view_video(STRANGER, video, is_shared=True)
