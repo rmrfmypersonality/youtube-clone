@@ -39,6 +39,21 @@ class VideoDetailOut(VideoOut):
     channel: ChannelBrief
     likes_count: int
     my_reaction: int  # 1, -1 или 0
+    subscribers_count: int
+    is_subscribed: bool
+
+
+class VideoUpdate(BaseModel):
+    """Все поля необязательные; None = не менять."""
+
+    title: Title | None = None
+    description: Description | None = None
+    visibility: Visibility | None = None
+
+
+class VideoManagePage(BaseModel):
+    items: list[VideoOut]
+    next_cursor: int | None
 
 
 class VideoCardOut(BaseModel):

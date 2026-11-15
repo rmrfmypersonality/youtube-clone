@@ -5,7 +5,7 @@ from pathlib import Path
 
 from app.core.config import get_settings
 from app.core.database import engine
-from worker.processor import reclaim_stale, run_once
+from worker.processor import cleanup_pending, reclaim_stale, run_once
 
 log = logging.getLogger("worker")
 
@@ -42,8 +42,9 @@ async def main() -> None:
             if loop.time() >= next_reclaim:
                 try:
                     await reclaim_stale()
+                    await cleanup_pending()
                 except Exception:
-                    log.exception("reclaim_stale failed")
+                    log.exception("periodic maintenance failed")
                 next_reclaim = loop.time() + RECLAIM_EVERY
 
             current = asyncio.create_task(run_once())

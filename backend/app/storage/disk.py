@@ -1,4 +1,5 @@
 import os
+import shutil
 from collections.abc import AsyncIterator
 from pathlib import Path
 from urllib.parse import quote
@@ -57,3 +58,7 @@ class DiskStorage(Storage):
 
     async def delete(self, key: str) -> None:
         await anyio.Path(self._resolve(key)).unlink(missing_ok=True)
+
+    async def delete_prefix(self, prefix: str) -> None:
+        path = self._resolve(prefix)  # проверка на выход за root до любых действий
+        await anyio.to_thread.run_sync(shutil.rmtree, path, True)

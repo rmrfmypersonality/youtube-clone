@@ -1,4 +1,6 @@
 import uuid
+import logging
+
 from collections.abc import AsyncIterator
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -19,10 +21,20 @@ from app.repositories.users import UserRepository
 from app.repositories.video_shares import ShareRepository
 from app.repositories.videos import VideoRepository
 from app.schemas.auth import ChannelBrief
-from app.schemas.videos import Quality, VideoCreate, VideoDetailOut, VideoOut
+from app.repositories.subscriptions import SubscriptionRepository
+from app.schemas.videos import (
+    Quality,
+    VideoCreate,
+    VideoDetailOut,
+    VideoManagePage,
+    VideoOut,
+    VideoUpdate,
+)
 from app.services.video_access import NOT_FOUND, VideoAccess
 from app.services.video_files import HEAD_SIZE, sniff_container
 from app.storage import Storage, StorageLimitExceeded
+
+log = logging.getLogger(__name__)
 
 
 async def _validated(stream: AsyncIterator[bytes]) -> AsyncIterator[bytes]:
@@ -45,6 +57,7 @@ async def _validated(stream: AsyncIterator[bytes]) -> AsyncIterator[bytes]:
 
 class VideoService:
     def __init__(self, session: AsyncSession, storage: Storage) -> None:
+        self.subs = SubscriptionRepository(session)
         self.session = session
         self.storage = storage
         self.videos = VideoRepository(session)
@@ -116,11 +129,16 @@ class VideoService:
         video, channel = await self._visible(user, video_id)
         likes_count = await self.likes.count_likes(video.id)
         my_reaction = await self.likes.get_value(user.id, video.id) if user else 0
+        is_subscribed = False
+        if user is not None:
+            is_subscribed = await self.subs.exists(user.id, channel.id)
         return VideoDetailOut(
             **VideoOut.model_validate(video).model_dump(),
             channel=ChannelBrief.model_validate(channel),
             likes_count=likes_count,
             my_reaction=my_reaction,
+            subscribers_count=await self.subs.count(channel.id),
+            is_subscribed=is_subscribed,
         )
 
     async def stream_target(self, user: User | None, video_id: int, quality: Quality) -> str:
@@ -171,3 +189,43 @@ class VideoService:
         video = await self._owned(user, video_id)
         await self.shares.remove(video.id, target_user_id)
         await self.session.commit()
+
+    # --- управление своими видео ---
+
+    async def list_mine(self, user: User, *, cursor: int | None, limit: int) -> VideoManagePage:
+        rows = await self.videos.list_by_owner(user.id, cursor=cursor, limit=limit)
+        has_more = len(rows) > limit
+        rows = rows[:limit]
+        return VideoManagePage(
+            items=[VideoOut.model_validate(v) for v in rows],
+            next_cursor=rows[-1].id if has_more else None,
+        )
+
+    async def _editable(self, user: User, video_id: int) -> Video:
+        video = await self.videos.get(video_id)
+        if video is None or not video_policy.can_edit_video(user, video):
+            raise NotFound(NOT_FOUND)
+        return video
+
+    async def update(self, user: User, video_id: int, data: VideoUpdate) -> Video:
+        video = await self._editable(user, video_id)
+        if data.title is not None:
+            video.title = data.title
+        if data.description is not None:
+            video.description = data.description
+        if data.visibility is not None:
+            video.visibility = data.visibility
+        await self.session.commit()
+        return video
+
+    async def delete(self, user: User, video_id: int) -> None:
+        video = await self._editable(user, video_id)
+        original = video.original_path
+        await self.session.delete(video)  # комментарии, лайки, шеры, задачи и т.д. удалит каскад
+        await self.session.commit()
+        try:
+            if original:
+                await self.storage.delete(original)
+            await self.storage.delete_prefix(f"videos/{video_id}")
+        except Exception:
+            log.exception("Не удалось удалить файлы видео %s", video_id)

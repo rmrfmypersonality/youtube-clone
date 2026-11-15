@@ -13,9 +13,11 @@ from app.schemas.videos import (
     VideoDetailOut,
     VideoOut,
     ViewCountOut,
+    VideoManagePage,
+    VideoUpdate,
 )
 from app.services.videos import VideoService
-from app.core.params import IdPath
+from app.core.params import IdPath, CursorQuery, LimitQuery
 
 router = APIRouter(prefix="/api/videos", tags=["videos"])
 
@@ -42,6 +44,17 @@ def _accel(path: str, cache_control: str) -> Response:
 @router.post("", response_model=VideoOut, status_code=201)
 async def create_video(data: VideoCreate, user: CurrentUser, service: VideoServiceDep):
     return await service.create(user, data)
+
+
+@router.get("/mine", response_model=VideoManagePage)
+async def my_videos(
+    user: CurrentUser,
+    service: VideoServiceDep,
+    cursor: CursorQuery = None,
+    limit: LimitQuery = 20,
+):
+    """Все мои видео во всех статусах."""
+    return await service.list_mine(user, cursor=cursor, limit=limit)
 
 
 @router.put(
@@ -101,6 +114,18 @@ async def video_thumbnail(video_id: VideoId, user: OptionalUser, service: VideoS
 @router.post("/{video_id}/view", response_model=ViewCountOut)
 async def register_view(video_id: VideoId, user: OptionalUser, service: VideoServiceDep):
     return ViewCountOut(views_count=await service.record_view(user, video_id))
+
+
+@router.patch("/{video_id}", response_model=VideoOut)
+async def update_video(
+    video_id: VideoId, data: VideoUpdate, user: CurrentUser, service: VideoServiceDep
+):
+    return await service.update(user, video_id, data)
+
+
+@router.delete("/{video_id}", status_code=204)
+async def delete_video(video_id: VideoId, user: CurrentUser, service: VideoServiceDep) -> None:
+    await service.delete(user, video_id)
 
 
 @router.get("/{video_id}/shares", response_model=list[SharedUserOut])

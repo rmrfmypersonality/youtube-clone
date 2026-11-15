@@ -6,21 +6,24 @@ from app.schemas.auth import ChannelBrief
 from app.schemas.videos import VideoCardOut, VideoPage
 
 
-def _page(rows: list[tuple[Video, Channel]], limit: int) -> VideoPage:
-    has_more = len(rows) > limit
+def to_card(video: Video, channel: Channel) -> VideoCardOut:
+    return VideoCardOut(
+        id=video.id,
+        title=video.title,
+        duration_seconds=video.duration_seconds,
+        views_count=video.views_count,
+        created_at=video.created_at,
+        channel=ChannelBrief.model_validate(channel),
+    )
+
+
+def video_page(rows: list[tuple[Video, Channel]], limit: int) -> VideoPage:
+    has_more = len(rows) > limit  # репозиторий берёт limit + 1
     rows = rows[:limit]
-    items = [
-        VideoCardOut(
-            id=v.id,
-            title=v.title,
-            duration_seconds=v.duration_seconds,
-            views_count=v.views_count,
-            created_at=v.created_at,
-            channel=ChannelBrief.model_validate(ch),
-        )
-        for v, ch in rows
-    ]
-    return VideoPage(items=items, next_cursor=rows[-1][0].id if has_more else None)
+    return VideoPage(
+        items=[to_card(v, ch) for v, ch in rows],
+        next_cursor=rows[-1][0].id if has_more else None,
+    )
 
 
 class FeedService:
@@ -28,10 +31,12 @@ class FeedService:
         self.videos = VideoRepository(session)
 
     async def home(self, *, cursor: int | None, limit: int) -> VideoPage:
-        return _page(await self.videos.list_public(query=None, cursor=cursor, limit=limit), limit)
+        rows = await self.videos.list_public(query=None, cursor=cursor, limit=limit)
+        return video_page(rows, limit)
 
     async def search(self, q: str, *, cursor: int | None, limit: int) -> VideoPage:
         q = q.replace("\x00", "").strip()  # NUL Postgres не принимает, иначе был бы 500
         if not q:
             return VideoPage(items=[], next_cursor=None)
-        return _page(await self.videos.list_public(query=q, cursor=cursor, limit=limit), limit)
+        rows = await self.videos.list_public(query=q, cursor=cursor, limit=limit)
+        return video_page(rows, limit)

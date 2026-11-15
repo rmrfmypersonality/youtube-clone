@@ -47,9 +47,14 @@ class VideoRepository:
         return (await self.session.execute(stmt)).scalar_one_or_none()
 
     async def list_public(
-        self, *, query: str | None, cursor: int | None, limit: int
+            self,
+            *,
+            query: str | None,
+            cursor: int | None,
+            limit: int,
+            owner_id: int | None = None,
     ) -> list[tuple[Video, Channel]]:
-        """Публичная лента и поиск: только public + ready + не скрыто модерацией."""
+        """Публичная лента, поиск и видео канала: только public + ready + не скрыто модерацией."""
         stmt = (
             select(Video, Channel)
             .join(Channel, Channel.owner_id == Video.owner_id)
@@ -61,6 +66,8 @@ class VideoRepository:
             .order_by(Video.id.desc())
             .limit(limit + 1)
         )
+        if owner_id is not None:
+            stmt = stmt.where(Video.owner_id == owner_id)
         if cursor is not None:
             stmt = stmt.where(Video.id < cursor)
         if query:
@@ -68,3 +75,10 @@ class VideoRepository:
             stmt = stmt.where(Video.title.ilike(f"%{_escape_like(query)}%", escape="\\"))
         rows = (await self.session.execute(stmt)).all()
         return [(r.Video, r.Channel) for r in rows]
+
+    async def list_by_owner(self, owner_id: int, *, cursor: int | None, limit: int) -> list[Video]:
+        """Все видео владельца во всех статусах (для раздела «Мои видео»)."""
+        stmt = select(Video).where(Video.owner_id == owner_id).order_by(Video.id.desc()).limit(limit + 1)
+        if cursor is not None:
+            stmt = stmt.where(Video.id < cursor)
+        return list((await self.session.execute(stmt)).scalars())
