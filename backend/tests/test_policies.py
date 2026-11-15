@@ -5,6 +5,7 @@ from app.policies import roles
 from app.policies import videos as video_policy
 from app.policies import comments as comment_policy  # noqa: E402
 from app.policies import playlists as playlist_policy  # noqa: E402
+from app.policies import reports as report_policy  # noqa: E402
 
 
 @pytest.mark.parametrize(
@@ -127,3 +128,38 @@ def test_can_add_video_to_playlist():
     assert not playlist_policy.can_add_video(STRANGER, _video(Visibility.unlisted))
     assert not playlist_policy.can_add_video(STRANGER, _video(Visibility.private))
     assert not playlist_policy.can_add_video(STRANGER, _video(Visibility.public, hidden=True))
+
+def test_moderator_cannot_view_hidden_private_video():
+    video = _video(Visibility.private, hidden=True)
+    for viewer in (None, STRANGER, MODERATOR, ADMIN):
+        assert not video_policy.can_view_video(viewer, video)
+    assert video_policy.can_view_video(OWNER, video)
+    assert video_policy.can_view_video(MODERATOR, video, is_shared=True)
+    assert not video_policy.can_view_video(STRANGER, video, is_shared=True)
+
+
+def test_comment_view_policy():
+    visible = Comment(user_id=1, hidden_by_moderation=False)
+    hidden = Comment(user_id=1, hidden_by_moderation=True)
+    for viewer in (None, OWNER, STRANGER, MODERATOR, ADMIN):
+        assert comment_policy.can_view_comment(viewer, visible)
+    for viewer in (OWNER, MODERATOR, ADMIN):
+        assert comment_policy.can_view_comment(viewer, hidden)
+    for viewer in (None, STRANGER):
+        assert not comment_policy.can_view_comment(viewer, hidden)
+
+
+def test_report_policies():
+    assert report_policy.can_report_video(STRANGER, _video())
+    assert not report_policy.can_report_video(OWNER, _video())
+    assert report_policy.can_report_comment(STRANGER, Comment(user_id=1))
+    assert not report_policy.can_report_comment(OWNER, Comment(user_id=1))
+
+
+def test_can_change_user_policy():
+    assert roles.can_change_user(ADMIN, STRANGER)
+    assert roles.can_change_user(ADMIN, MODERATOR)
+    assert not roles.can_change_user(ADMIN, ADMIN)  # себя нельзя
+    assert not roles.can_change_user(MODERATOR, STRANGER)
+    assert not roles.can_change_user(STRANGER, STRANGER)
+    assert not roles.can_change_user(None, STRANGER)

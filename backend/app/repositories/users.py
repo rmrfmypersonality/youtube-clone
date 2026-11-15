@@ -1,6 +1,7 @@
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.sql import escape_like
 from app.models import User
 
 
@@ -21,3 +22,19 @@ class UserRepository:
 
     def add(self, user: User) -> None:
         self.session.add(user)
+
+    async def list_for_admin(
+        self, *, q: str | None, cursor: int | None, limit: int
+    ) -> list[User]:
+        stmt = select(User).order_by(User.id.desc()).limit(limit + 1)
+        if cursor is not None:
+            stmt = stmt.where(User.id < cursor)
+        if q:
+            pattern = f"%{escape_like(q)}%"
+            stmt = stmt.where(
+                or_(
+                    User.username.ilike(pattern, escape="\\"),
+                    User.email.ilike(pattern, escape="\\"),
+                )
+            )
+        return list((await self.session.execute(stmt)).scalars().unique())

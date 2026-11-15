@@ -4,6 +4,7 @@ import { api } from '../api/client'
 import { formatRelative } from '../composables/format'
 import { useAuth } from '../composables/useAuth'
 import { usePagedList } from '../composables/usePagedList'
+import ReportDialog from './ReportDialog.vue'
 
 const props = defineProps({
   comment: { type: Object, required: true },
@@ -12,7 +13,7 @@ const props = defineProps({
 })
 const emit = defineEmits(['deleted'])
 
-const { state: auth } = useAuth()
+const { state: auth, isModerator } = useAuth()
 
 // Сервер всё равно проверит: это только чтобы не показывать лишних кнопок
 const canDelete = computed(
@@ -20,6 +21,26 @@ const canDelete = computed(
 )
 
 const actionError = ref('')
+
+const isAuthor = computed(() => auth.user?.id === props.comment.author.id)
+const hidden = ref(props.comment.hidden_by_moderation)
+const reportOpen = ref(false)
+const moderating = ref(false)
+
+async function toggleHidden() {
+  moderating.value = true
+  actionError.value = ''
+  try {
+    const res = hidden.value
+      ? await api.moderation.unhideComment(props.comment.id)
+      : await api.moderation.hideComment(props.comment.id)
+    hidden.value = res.hidden
+  } catch (e) {
+    actionError.value = e.message
+  } finally {
+    moderating.value = false
+  }
+}
 
 async function remove() {
   if (!confirm('Удалить комментарий?')) return
@@ -94,12 +115,30 @@ async function sendReply() {
         <span class="muted">{{ formatRelative(comment.created_at) }}</span>
       </div>
       <p class="text">{{ comment.text }}</p>
+      <p v-if="hidden" class="hidden-note">Скрыт модератором</p>
 
       <div class="row">
         <button v-if="!reply && auth.user" type="button" class="link" @click="replying = !replying">
           Ответить
         </button>
         <button v-if="canDelete" type="button" class="link" @click="remove">Удалить</button>
+        <button
+          v-if="auth.user && !isAuthor"
+          type="button"
+          class="link"
+          @click="reportOpen = true"
+        >
+          Пожаловаться
+        </button>
+        <button
+          v-if="isModerator"
+          type="button"
+          class="link"
+          :disabled="moderating"
+          @click="toggleHidden"
+        >
+          {{ hidden ? 'Вернуть' : 'Скрыть' }}
+        </button>
       </div>
       <p v-if="actionError" class="error" role="alert">{{ actionError }}</p>
 
@@ -138,6 +177,12 @@ async function sendReply() {
           Показать ещё
         </button>
       </div>
+      <ReportDialog
+        v-if="reportOpen"
+        kind="comment"
+        :target-id="comment.id"
+        @close="reportOpen = false"
+      />
     </div>
   </div>
 </template>
@@ -198,5 +243,9 @@ async function sendReply() {
   flex-direction: column;
   gap: 16px;
   margin-top: 12px;
+}
+.hidden-note {
+  margin: 0 0 6px;
+  color: var(--danger);
 }
 </style>

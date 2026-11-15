@@ -7,12 +7,13 @@ import { formatRelative, formatViews, formatSubscribers } from '../composables/f
 import CommentsSection from '../components/CommentsSection.vue'
 import PlaylistMenu from '../components/PlaylistMenu.vue'
 import SubscribeButton from '../components/SubscribeButton.vue'
+import ReportDialog from '../components/ReportDialog.vue'
 
 const QUALITIES = ['720', '360']
 const VISIBILITY_LABELS = { unlisted: 'Доступ по ссылке', private: 'Ограниченный доступ' }
 
 const route = useRoute()
-const { state: auth, init } = useAuth()
+const { state: auth, init, isModerator } = useAuth()
 
 const video = ref(null)
 const loading = ref(true)
@@ -30,6 +31,26 @@ const thumbUrl = computed(() => `/api/videos/${video.value.id}/thumbnail`)
 const router = useRouter()
 const reacting = ref(false)
 const reactError = ref('')
+
+const reportOpen = ref(false)
+const moderating = ref(false)
+const moderationError = ref('')
+
+async function toggleHidden() {
+  if (moderating.value) return
+  moderating.value = true
+  moderationError.value = ''
+  try {
+    const res = video.value.hidden_by_moderation
+      ? await api.moderation.unhideVideo(video.value.id)
+      : await api.moderation.hideVideo(video.value.id)
+    video.value.hidden_by_moderation = res.hidden
+  } catch (e) {
+    moderationError.value = e.message
+  } finally {
+    moderating.value = false
+  }
+}
 
 async function react(value) {
   if (!auth.user) {
@@ -201,8 +222,32 @@ function onSubscription(res) {
           👎
         </button>
         <PlaylistMenu :video-id="video.id" />
+        <button
+          v-if="auth.user && !isOwner"
+          type="button"
+          class="chip"
+          @click="reportOpen = true"
+        >
+          Пожаловаться
+        </button>
+        <button
+          v-if="isModerator"
+          type="button"
+          class="chip"
+          :disabled="moderating"
+          @click="toggleHidden"
+        >
+          {{ video.hidden_by_moderation ? 'Вернуть видео' : 'Скрыть видео' }}
+        </button>
       </div>
       <p v-if="reactError" class="error" role="alert">{{ reactError }}</p>
+      <p v-if="moderationError" class="error" role="alert">{{ moderationError }}</p>
+      <ReportDialog
+        v-if="reportOpen"
+        kind="video"
+        :target-id="video.id"
+        @close="reportOpen = false"
+      />
 
       <div class="description">
         <div class="meta">

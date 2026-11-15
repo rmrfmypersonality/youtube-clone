@@ -1,4 +1,4 @@
-import { reactive, watch } from 'vue'
+import { computed, reactive, watch } from 'vue'
 import { api, refreshSession, setAuthLostHandler } from '../api/client'
 
 const state = reactive({ user: null, ready: false })
@@ -80,6 +80,9 @@ function setChannel(channel) {
   if (state.user) state.user.channel = channel
 }
 
+const isModerator = computed(() => ['moderator', 'admin'].includes(state.user?.role))
+const isAdmin = computed(() => state.user?.role === 'admin')
+
 export function useAuth() {
-  return { state, init, login, register, logout, setChannel }
+  return { state, init, login, register, logout, setChannel, isModerator, isAdmin }
 }

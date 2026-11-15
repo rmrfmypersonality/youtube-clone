@@ -151,4 +151,21 @@ export const api = {
     addItem: (id, videoId) => request('PUT', `/playlists/${id}/items/${videoId}`),
     removeItem: (id, videoId) => request('DELETE', `/playlists/${id}/items/${videoId}`),
   },
+    reports: {
+    video: (id, payload) => request('POST', `/videos/${id}/report`, payload),
+    comment: (id, payload) => request('POST', `/comments/${id}/report`, payload),
+  },
+  moderation: {
+    reports: (status, cursor) => request('GET', `/moderation/reports${qs({ status, cursor })}`),
+    dismiss: (id) => request('POST', `/moderation/reports/${id}/dismiss`),
+    hideVideo: (id) => request('POST', `/moderation/videos/${id}/hide`),
+    unhideVideo: (id) => request('POST', `/moderation/videos/${id}/unhide`),
+    hideComment: (id) => request('POST', `/moderation/comments/${id}/hide`),
+    unhideComment: (id) => request('POST', `/moderation/comments/${id}/unhide`),
+  },
+  admin: {
+    users: (q, cursor) => request('GET', `/admin/users${qs({ q, cursor })}`),
+    updateUser: (id, payload) => request('PATCH', `/admin/users/${id}`, payload),
+    audit: (cursor) => request('GET', `/admin/audit${qs({ cursor })}`),
+  },
 }

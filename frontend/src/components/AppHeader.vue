@@ -3,7 +3,7 @@ import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuth } from '../composables/useAuth'
 
-const { state, logout } = useAuth()
+const { state, logout, isModerator, isAdmin } = useAuth()
 const router = useRouter()
 const menuOpen = ref(false)
 
@@ -64,6 +64,8 @@ async function onLogout() {
               <div v-if="roleLabel" class="menu-role">{{ roleLabel }}</div>
               <RouterLink class="menu-item" :to="`/@${state.user.channel.handle}`" @click="menuOpen = false">Мой канал</RouterLink>
               <RouterLink class="menu-item" to="/studio" @click="menuOpen = false">Мои видео</RouterLink>
+              <RouterLink v-if="isModerator" class="menu-item" to="/moderation" @click="menuOpen = false">Модерация</RouterLink>
+              <RouterLink v-if="isAdmin" class="menu-item" to="/admin" @click="menuOpen = false">Администрирование</RouterLink>
             </div>
             <button class="menu-item" type="button" @click="onLogout">Выйти</button>
           </div>

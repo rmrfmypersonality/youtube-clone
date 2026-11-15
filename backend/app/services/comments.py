@@ -5,6 +5,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.exceptions import Conflict, NotFound
 from app.models import Channel, Comment, User, VideoStatus
 from app.policies import comments as comment_policy
+from app.policies.roles import can_moderate
+from app.repositories.audit import AuditRepository
 from app.repositories.comments import CommentRepository
 from app.schemas.comments import CommentAuthor, CommentCreate, CommentOut, CommentPage
 from app.services.video_access import VideoAccess
@@ -21,6 +23,7 @@ def _out(comment: Comment, channel: Channel, reply_count: int = 0) -> CommentOut
         created_at=comment.created_at,
         author=CommentAuthor(id=channel.owner_id, handle=channel.handle, name=channel.name),
         reply_count=reply_count,
+        hidden_by_moderation=comment.hidden_by_moderation,
     )
 
 
@@ -33,11 +36,16 @@ def _page(rows: list[tuple[Comment, Channel, int]], limit: int) -> CommentPage:
     )
 
 
+def _viewer(user: User | None) -> dict:
+    return {"viewer_id": user.id if user else None, "is_moderator": can_moderate(user)}
+
+
 class CommentService:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
         self.access = VideoAccess(session)
         self.comments = CommentRepository(session)
+        self.audit = AuditRepository(session)
 
     async def list_for_video(
         self,
@@ -50,7 +58,7 @@ class CommentService:
     ) -> CommentPage:
         await self.access.visible(user, video_id)
         rows = await self.comments.list_top(
-            video_id, cursor=cursor, limit=limit, newest_first=sort == "new"
+            video_id, cursor=cursor, limit=limit, newest_first=sort == "new", **_viewer(user)
         )
         return _page(rows, limit)
 
@@ -58,10 +66,16 @@ class CommentService:
         self, user: User | None, comment_id: int, *, cursor: int | None, limit: int
     ) -> CommentPage:
         parent = await self.comments.get(comment_id)
-        if parent is None or parent.parent_id is not None:  # ответы бывают только у корневых
+        if (
+            parent is None
+            or parent.parent_id is not None  # ответы бывают только у корневых
+            or not comment_policy.can_view_comment(user, parent)
+        ):
             raise NotFound(COMMENT_NOT_FOUND)
         await self.access.visible(user, parent.video_id)
-        rows = await self.comments.list_replies(parent.id, cursor=cursor, limit=limit)
+        rows = await self.comments.list_replies(
+            parent.id, cursor=cursor, limit=limit, **_viewer(user)
+        )
         return _page(rows, limit)
 
     async def create(self, user: User, video_id: int, data: CommentCreate) -> CommentOut:
@@ -72,8 +86,12 @@ class CommentService:
         parent_id = None
         if data.parent_id is not None:
             parent = await self.comments.get(data.parent_id)
-            # Родитель должен быть из этого же видео, иначе можно писать в чужие треды
-            if parent is None or parent.video_id != video.id:
+            # Родитель должен быть из этого же видео и видимым автору ответа
+            if (
+                parent is None
+                or parent.video_id != video.id
+                or not comment_policy.can_view_comment(user, parent)
+            ):
                 raise NotFound(COMMENT_NOT_FOUND)
             parent_id = parent.parent_id or parent.id  # ответ на ответ уходит в корневой тред
 
@@ -89,5 +107,13 @@ class CommentService:
         # Не автор и не админ: 404, чтобы не выдавать существование комментария
         if comment is None or not comment_policy.can_delete_comment(user, comment):
             raise NotFound(COMMENT_NOT_FOUND)
-        await self.session.delete(comment)  # ответы удалит каскад в БД
+        if comment.user_id != user.id:  # действие админа над чужим
+            self.audit.log(
+                user,
+                "comment.delete",
+                "comment",
+                comment.id,
+                {"video_id": comment.video_id, "author_id": comment.user_id, "text": comment.text[:200]},
+            )
+        await self.session.delete(comment)  # ответы и жалобы удалит каскад в БД
         await self.session.commit()

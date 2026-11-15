@@ -24,3 +24,9 @@ class ChannelRepository:
             )
         )
         return (await self.session.execute(stmt)).scalar_one()
+
+    async def by_owner_ids(self, owner_ids: set[int]) -> dict[int, Channel]:
+        if not owner_ids:
+            return {}
+        rows = await self.session.execute(select(Channel).where(Channel.owner_id.in_(owner_ids)))
+        return {c.owner_id: c for c in rows.scalars()}
