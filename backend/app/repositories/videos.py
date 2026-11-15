@@ -1,7 +1,11 @@
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import Channel, Video, VideoStatus
+from app.models import Channel, Video, VideoStatus, Visibility
+
+
+def _escape_like(value: str) -> str:
+    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
 
 class VideoRepository:
@@ -41,3 +45,26 @@ class VideoRepository:
             .returning(Video.views_count)
         )
         return (await self.session.execute(stmt)).scalar_one_or_none()
+
+    async def list_public(
+        self, *, query: str | None, cursor: int | None, limit: int
+    ) -> list[tuple[Video, Channel]]:
+        """Публичная лента и поиск: только public + ready + не скрыто модерацией."""
+        stmt = (
+            select(Video, Channel)
+            .join(Channel, Channel.owner_id == Video.owner_id)
+            .where(
+                Video.status == VideoStatus.ready,
+                Video.visibility == Visibility.public,
+                Video.hidden_by_moderation.is_(False),
+            )
+            .order_by(Video.id.desc())
+            .limit(limit + 1)
+        )
+        if cursor is not None:
+            stmt = stmt.where(Video.id < cursor)
+        if query:
+            # ILIKE по колонке, чтобы работал GIN-индекс pg_trgm; wildcard'ы пользователя экранируем
+            stmt = stmt.where(Video.title.ilike(f"%{_escape_like(query)}%", escape="\\"))
+        rows = (await self.session.execute(stmt)).all()
+        return [(r.Video, r.Channel) for r in rows]

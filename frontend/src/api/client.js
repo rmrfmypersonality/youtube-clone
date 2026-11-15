@@ -94,6 +94,15 @@ export function uploadVideoFile(videoId, file, onProgress) {
   return { promise, abort: () => xhr.abort() }
 }
 
+function qs(params) {
+  const p = new URLSearchParams()
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== null && value !== undefined && value !== '') p.set(key, value)
+  }
+  const s = p.toString()
+  return s ? `?${s}` : ''
+}
+
 export const api = {
   health: () => request('GET', '/health'),
   auth: {
@@ -103,8 +112,18 @@ export const api = {
     logout: () => request('POST', '/auth/logout'),
   },
   videos: {
+    list: (cursor) => request('GET', `/videos${qs({ cursor })}`),
     create: (payload) => request('POST', '/videos', payload),
     get: (id) => request('GET', `/videos/${id}`),
     view: (id) => request('POST', `/videos/${id}/view`),
+    react: (id, value) => request('PUT', `/videos/${id}/reaction`, { value }),
+  },
+  search: (q, cursor) => request('GET', `/search${qs({ q, cursor })}`),
+  comments: {
+    list: (videoId, sort, cursor) =>
+      request('GET', `/videos/${videoId}/comments${qs({ sort, cursor })}`),
+    create: (videoId, payload) => request('POST', `/videos/${videoId}/comments`, payload),
+    replies: (id, cursor) => request('GET', `/comments/${id}/replies${qs({ cursor })}`),
+    remove: (id) => request('DELETE', `/comments/${id}`),
   },
 }

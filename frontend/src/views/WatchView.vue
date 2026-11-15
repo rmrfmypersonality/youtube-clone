@@ -1,9 +1,10 @@
 <script setup>
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { api } from '../api/client'
 import { useAuth } from '../composables/useAuth'
 import { formatRelative, formatViews } from '../composables/format'
+import CommentsSection from '../components/CommentsSection.vue'
 
 const QUALITIES = ['720', '360']
 const VISIBILITY_LABELS = { unlisted: 'Доступ по ссылке', private: 'Ограниченный доступ' }
@@ -23,6 +24,30 @@ let loadToken = 0
 const isOwner = computed(() => !!video.value && auth.user?.id === video.value.owner_id)
 const streamUrl = computed(() => `/api/videos/${video.value.id}/stream?quality=${quality.value}`)
 const thumbUrl = computed(() => `/api/videos/${video.value.id}/thumbnail`)
+
+const router = useRouter()
+const reacting = ref(false)
+const reactError = ref('')
+
+async function react(value) {
+  if (!auth.user) {
+    router.push({ name: 'login', query: { next: route.fullPath } })
+    return
+  }
+  if (reacting.value) return
+  reacting.value = true
+  reactError.value = ''
+  try {
+    const next = video.value.my_reaction === value ? 0 : value // повторный клик снимает реакцию
+    const res = await api.videos.react(video.value.id, next)
+    video.value.likes_count = res.likes_count
+    video.value.my_reaction = res.my_reaction
+  } catch (e) {
+    reactError.value = e.message
+  } finally {
+    reacting.value = false
+  }
+}
 
 async function load(id) {
   const token = ++loadToken
@@ -139,12 +164,35 @@ function setQuality(q) {
         </div>
       </div>
 
+      <div v-if="video.status === 'ready'" class="actions">
+        <button
+          type="button"
+          class="chip"
+          :class="{ active: video.my_reaction === 1 }"
+          :disabled="reacting"
+          @click="react(1)"
+        >
+          👍 {{ video.likes_count }}
+        </button>
+        <button
+          type="button"
+          class="chip"
+          :class="{ active: video.my_reaction === -1 }"
+          :disabled="reacting"
+          @click="react(-1)"
+        >
+          👎
+        </button>
+      </div>
+      <p v-if="reactError" class="error" role="alert">{{ reactError }}</p>
+
       <div class="description">
         <div class="meta">
           {{ formatViews(video.views_count) }} • {{ formatRelative(video.created_at) }}
         </div>
         <p class="text">{{ video.description || 'Описания нет' }}</p>
       </div>
+      <CommentsSection v-if="video.status === 'ready'" :key="video.id" :video-id="video.id" />
     </template>
   </div>
 </template>
@@ -250,5 +298,10 @@ function setQuality(q) {
   margin: 8px 0 0;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+}
+.actions {
+  display: flex;
+  gap: 8px;
+  margin: 0 0 16px;
 }
 </style>

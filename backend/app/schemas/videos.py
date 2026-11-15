@@ -37,6 +37,22 @@ class VideoOut(BaseModel):
 
 class VideoDetailOut(VideoOut):
     channel: ChannelBrief
+    likes_count: int
+    my_reaction: int  # 1, -1 или 0
+
+
+class VideoCardOut(BaseModel):
+    id: int
+    title: str
+    duration_seconds: float | None
+    views_count: int
+    created_at: datetime
+    channel: ChannelBrief
+
+
+class VideoPage(BaseModel):
+    items: list[VideoCardOut]
+    next_cursor: int | None
 
 
 class ViewCountOut(BaseModel):

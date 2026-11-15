@@ -126,6 +126,7 @@ async def make_video(db):
     async def factory(
         owner: str,
         *,
+        title: str = "Test video",
         visibility: Visibility = Visibility.public,
         status: VideoStatus = VideoStatus.ready,
         hidden: bool = False,
@@ -133,7 +134,7 @@ async def make_video(db):
         owner_id = (await db.execute(select(User.id).where(User.username == owner))).scalar_one()
         video = Video(
             owner_id=owner_id,
-            title="Test video",
+            title=title,
             visibility=visibility,
             status=status,
             hidden_by_moderation=hidden,
