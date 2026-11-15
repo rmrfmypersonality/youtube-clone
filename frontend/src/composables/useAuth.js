@@ -75,6 +75,11 @@ async function logout() {
   }
 }
 
+
+function setChannel(channel) {
+  if (state.user) state.user.channel = channel
+}
+
 export function useAuth() {
-  return { state, init, login, register, logout }
+  return { state, init, login, register, logout, setChannel }
 }

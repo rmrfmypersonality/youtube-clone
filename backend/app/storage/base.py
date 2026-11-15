@@ -26,3 +26,7 @@ class Storage(ABC):
     @abstractmethod
     def internal_url(self, key: str) -> str:
         """Путь для X-Accel-Redirect. S3-реализация вернула бы presigned URL."""
+
+    @abstractmethod
+    async def delete_prefix(self, prefix: str) -> None:
+        """Удаляет всё под префиксом ('videos/5'). Если ничего нет, это не ошибка."""

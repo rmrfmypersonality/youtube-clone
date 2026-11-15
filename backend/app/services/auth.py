@@ -20,6 +20,7 @@ from app.core.time import utcnow
 from app.models import Channel, RefreshToken, User
 from app.repositories.refresh_tokens import RefreshTokenRepository
 from app.repositories.users import UserRepository
+from app.repositories.channels import ChannelRepository
 from app.schemas.auth import LoginIn, RegisterIn
 
 INVALID_SESSION = "Сессия недействительна"
@@ -34,6 +35,7 @@ class AuthResult:
 
 class AuthService:
     def __init__(self, session: AsyncSession) -> None:
+        self.channels = ChannelRepository(session)
         self.session = session
         self.users = UserRepository(session)
         self.tokens = RefreshTokenRepository(session)
@@ -42,6 +44,8 @@ class AuthService:
         if await self.users.get_by_email(data.email):
             raise Conflict("Этот email уже занят")
         if await self.users.get_by_username(data.username):
+            raise Conflict("Это имя пользователя уже занято")
+        if await self.channels.get_by_handle(data.username):  # handle мог быть занят сменой
             raise Conflict("Это имя пользователя уже занято")
 
         user = User(

@@ -2,7 +2,7 @@ import asyncio
 import logging
 from datetime import timedelta
 
-from sqlalchemy import update
+from sqlalchemy import delete, update
 
 from app.core.config import get_settings
 from app.core.database import SessionLocal
@@ -53,7 +53,8 @@ async def _process(job: Job) -> None:
     async with SessionLocal() as session:
         video = await session.get(Video, video_id)
         db_job = await session.get(Job, job.id)
-        if video is not None:  # видео могли удалить, пока шла обработка
+        orphaned = video is None  # видео удалили, пока шла обработка
+        if video is not None:
             video.path_720, video.path_360, video.thumbnail_path = key_720, key_360, key_thumb
             video.duration_seconds = info.duration
             video.status = VideoStatus.ready
@@ -62,6 +63,8 @@ async def _process(job: Job) -> None:
             db_job.error = None
             db_job.locked_at = None
         await session.commit()
+    if orphaned:
+        await storage.delete_prefix(base)
 
 
 async def _fail_or_retry(job: Job, error: str, *, retry: bool) -> None:
@@ -70,7 +73,9 @@ async def _fail_or_retry(job: Job, error: str, *, retry: bool) -> None:
         db_job = await session.get(Job, job.id)
         video = await session.get(Video, job.video_id)
         if db_job is None:
-            return
+            if db_job is None:  # видео удалили во время обработки, подчищаем недописанное
+                await get_storage().delete_prefix(f"videos/{job.video_id}")
+                return
         db_job.error = error[:2000]
         db_job.locked_at = None
         if retry and db_job.attempts < max_attempts:
@@ -140,3 +145,15 @@ async def reclaim_stale() -> None:
                     video.status = VideoStatus.uploaded
             log.warning("job %s: зависшая задача, статус -> %s", job.id, job.status.value)
         await session.commit()
+
+
+async def cleanup_pending() -> None:
+    """Записи, для которых файл так и не загрузили (закрыли вкладку), удаляем через сутки."""
+    cutoff = utcnow() - timedelta(hours=get_settings().pending_ttl_hours)
+    async with SessionLocal() as session:
+        result = await session.execute(
+            delete(Video).where(Video.status == VideoStatus.pending, Video.created_at < cutoff)
+        )
+        await session.commit()
+    if result.rowcount:
+        log.info("Удалено %s видео без загруженного файла", result.rowcount)

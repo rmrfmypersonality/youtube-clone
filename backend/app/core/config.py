@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     job_stale_seconds: int = 2400
     ffmpeg_step_timeout_seconds: int = 1800
     worker_poll_seconds: float = 2.0
+    pending_ttl_hours: int = 24  # видео без загруженного файла удаляются через столько часов
 
     @model_validator(mode="after")
     def _check_prod_secret(self) -> "Settings":

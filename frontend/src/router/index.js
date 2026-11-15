@@ -1,11 +1,14 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuth } from '../composables/useAuth'
+import ChannelView from '../views/ChannelView.vue'
 import HomeView from '../views/HomeView.vue'
 import LoginView from '../views/LoginView.vue'
+import PlaylistView from '../views/PlaylistView.vue'
 import RegisterView from '../views/RegisterView.vue'
+import SearchView from '../views/SearchView.vue'
+import StudioView from '../views/StudioView.vue'
 import UploadView from '../views/UploadView.vue'
 import WatchView from '../views/WatchView.vue'
-import SearchView from '../views/SearchView.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -14,8 +17,11 @@ const router = createRouter({
     { path: '/login', name: 'login', component: LoginView },
     { path: '/register', name: 'register', component: RegisterView },
     { path: '/upload', name: 'upload', component: UploadView, meta: { requiresAuth: true } },
+    { path: '/studio', name: 'studio', component: StudioView, meta: { requiresAuth: true } },
     { path: '/watch/:id(\\d+)', name: 'watch', component: WatchView },
     { path: '/search', name: 'search', component: SearchView },
+    { path: '/playlist/:id(\\d+)', name: 'playlist', component: PlaylistView },
+    { path: '/@:handle/:tab(videos|playlists)?', name: 'channel', component: ChannelView },
   ],
 })
 

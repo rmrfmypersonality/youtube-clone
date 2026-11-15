@@ -17,7 +17,7 @@ defineProps({
       <span class="avatar">{{ video.channel.name[0]?.toUpperCase() }}</span>
       <div class="text">
         <RouterLink :to="`/watch/${video.id}`" class="title">{{ video.title }}</RouterLink>
-        <div class="muted">{{ video.channel.name }}</div>
+        <RouterLink :to="`/@${video.channel.handle}`" class="channel">{{ video.channel.name }}</RouterLink>
         <div class="muted">
           {{ formatViews(video.views_count) }} • {{ formatRelative(video.created_at) }}
         </div>
@@ -99,6 +99,13 @@ defineProps({
 }
 .horizontal .avatar {
   display: none;
+}
+.channel {
+  display: block;
+  color: var(--text-secondary);
+}
+.channel:hover {
+  color: var(--text);
 }
 @media (max-width: 600px) {
   .horizontal {
