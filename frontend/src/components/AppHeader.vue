@@ -1,6 +1,6 @@
 <script setup>
-import { computed, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useAuth } from '../composables/useAuth'
 
 const { state, logout } = useAuth()
@@ -11,6 +11,21 @@ const ROLE_LABELS = { moderator: 'Модератор', admin: 'Админист�
 
 const initial = computed(() => state.user?.username?.[0]?.toUpperCase() ?? '')
 const roleLabel = computed(() => ROLE_LABELS[state.user?.role] ?? null)
+
+const route = useRoute()
+const query = ref(String(route.query.q ?? ''))
+
+watch(
+  () => route.query.q,
+  (value) => {
+    query.value = String(value ?? '')
+  },
+)
+
+function onSearch() {
+  const q = query.value.trim()
+  if (q) router.push({ name: 'search', query: { q } })
+}
 
 async function onLogout() {
   menuOpen.value = false
@@ -28,6 +43,11 @@ async function onLogout() {
       </svg>
       <span>YouTube Clone</span>
     </RouterLink>
+
+    <form class="search" role="search" @submit.prevent="onSearch">
+      <input v-model="query" type="search" maxlength="100" placeholder="Введите запрос" aria-label="Поиск" />
+      <button class="btn" aria-label="Найти">Найти</button>
+    </form>
 
     <div class="right">
       <template v-if="state.ready">
@@ -134,5 +154,27 @@ async function onLogout() {
 }
 .upload-btn {
   margin-right: 12px;
+}
+.search {
+  display: flex;
+  flex: 1;
+  gap: 8px;
+  max-width: 600px;
+  margin: 0 16px;
+}
+.search input {
+  flex: 1;
+  min-width: 0;
+  padding: 0 16px;
+  height: 36px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+}
+.search input:focus {
+  outline: none;
+  border-color: var(--link);
 }
 </style>

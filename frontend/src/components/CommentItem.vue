@@ -1,0 +1,202 @@
+<script setup>
+import { computed, ref } from 'vue'
+import { api } from '../api/client'
+import { formatRelative } from '../composables/format'
+import { useAuth } from '../composables/useAuth'
+import { usePagedList } from '../composables/usePagedList'
+
+const props = defineProps({
+  comment: { type: Object, required: true },
+  videoId: { type: Number, required: true },
+  reply: Boolean, // ответ: без своей ветки и кнопки «Ответить»
+})
+const emit = defineEmits(['deleted'])
+
+const { state: auth } = useAuth()
+
+// Сервер всё равно проверит: это только чтобы не показывать лишних кнопок
+const canDelete = computed(
+  () => !!auth.user && (auth.user.id === props.comment.author.id || auth.user.role === 'admin'),
+)
+
+const actionError = ref('')
+
+async function remove() {
+  if (!confirm('Удалить комментарий?')) return
+  actionError.value = ''
+  try {
+    await api.comments.remove(props.comment.id)
+    emit('deleted', props.comment.id)
+  } catch (e) {
+    actionError.value = e.message
+  }
+}
+
+// --- ответы (только у корневых комментариев) ---
+const replyCount = ref(props.comment.reply_count)
+const open = ref(false)
+const {
+  items: replyItems,
+  loading: repliesLoading,
+  done: repliesDone,
+  error: repliesError,
+  loadMore: loadReplies,
+  reset: resetReplies,
+} = usePagedList((cursor) => api.comments.replies(props.comment.id, cursor))
+
+function toggleReplies() {
+  open.value = !open.value
+  if (open.value && !replyItems.value.length && !repliesDone.value) loadReplies()
+}
+
+function onReplyDeleted(id) {
+  replyItems.value = replyItems.value.filter((r) => r.id !== id)
+  replyCount.value--
+}
+
+const replying = ref(false)
+const replyText = ref('')
+const posting = ref(false)
+const replyError = ref('')
+
+async function sendReply() {
+  const text = replyText.value.trim()
+  if (!text || posting.value) return
+  posting.value = true
+  replyError.value = ''
+  try {
+    const created = await api.comments.create(props.videoId, { text, parent_id: props.comment.id })
+    replyText.value = ''
+    replying.value = false
+    replyCount.value++
+    if (open.value && repliesDone.value) {
+      replyItems.value.push(created)
+    } else {
+      // Часть ответов ещё не загружена: перечитываем ветку с начала, чтобы не получить дубль
+      resetReplies()
+      open.value = true
+      await loadReplies()
+    }
+  } catch (e) {
+    replyError.value = e.message
+  } finally {
+    posting.value = false
+  }
+}
+</script>
+
+<template>
+  <div class="comment" :class="{ reply }">
+    <span class="avatar">{{ comment.author.name[0]?.toUpperCase() }}</span>
+    <div class="body">
+      <div class="head">
+        <strong>@{{ comment.author.handle }}</strong>
+        <span class="muted">{{ formatRelative(comment.created_at) }}</span>
+      </div>
+      <p class="text">{{ comment.text }}</p>
+
+      <div class="row">
+        <button v-if="!reply && auth.user" type="button" class="link" @click="replying = !replying">
+          Ответить
+        </button>
+        <button v-if="canDelete" type="button" class="link" @click="remove">Удалить</button>
+      </div>
+      <p v-if="actionError" class="error" role="alert">{{ actionError }}</p>
+
+      <form v-if="replying" class="reply-form" @submit.prevent="sendReply">
+        <label class="field">
+          <textarea v-model="replyText" maxlength="2000" placeholder="Добавьте ответ" required />
+        </label>
+        <p v-if="replyError" class="error" role="alert">{{ replyError }}</p>
+        <div class="row">
+          <button type="button" class="btn" @click="replying = false">Отмена</button>
+          <button class="btn btn-primary" :disabled="posting || !replyText.trim()">Ответить</button>
+        </div>
+      </form>
+
+      <button v-if="!reply && replyCount > 0" type="button" class="link toggle" @click="toggleReplies">
+        {{ open ? 'Скрыть ответы' : `Ответов: ${replyCount}` }}
+      </button>
+
+      <div v-if="open" class="replies">
+        <CommentItem
+          v-for="r in replyItems"
+          :key="r.id"
+          :comment="r"
+          :video-id="videoId"
+          reply
+          @deleted="onReplyDeleted"
+        />
+        <p v-if="repliesLoading" class="muted">Загрузка…</p>
+        <p v-if="repliesError" class="error" role="alert">{{ repliesError }}</p>
+        <button
+          v-if="!repliesDone && !repliesLoading"
+          type="button"
+          class="link"
+          @click="loadReplies"
+        >
+          Показать ещё
+        </button>
+      </div>
+    </div>
+  </div>
+</template>
+
+<style scoped>
+.comment {
+  display: flex;
+  gap: 12px;
+}
+.avatar {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--link);
+  color: #0f0f0f;
+  font-weight: 500;
+}
+.reply .avatar {
+  width: 24px;
+  height: 24px;
+  font-size: 12px;
+}
+.body {
+  flex: 1;
+  min-width: 0;
+}
+.head {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+}
+.text {
+  margin: 2px 0 6px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.row {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+.reply-form {
+  margin-top: 8px;
+}
+.reply-form .row {
+  justify-content: flex-end;
+  gap: 8px;
+}
+.toggle {
+  display: block;
+  margin-top: 6px;
+}
+.replies {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 12px;
+}
+</style>

@@ -106,3 +106,21 @@ a {
   margin: 0 0 12px;
   color: var(--danger);
 }
+
+.muted {
+  color: var(--text-secondary);
+}
+
+.link {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--text-secondary);
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.link:hover {
+  color: var(--text);
+}

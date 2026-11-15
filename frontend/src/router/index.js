@@ -5,6 +5,7 @@ import LoginView from '../views/LoginView.vue'
 import RegisterView from '../views/RegisterView.vue'
 import UploadView from '../views/UploadView.vue'
 import WatchView from '../views/WatchView.vue'
+import SearchView from '../views/SearchView.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -14,6 +15,7 @@ const router = createRouter({
     { path: '/register', name: 'register', component: RegisterView },
     { path: '/upload', name: 'upload', component: UploadView, meta: { requiresAuth: true } },
     { path: '/watch/:id(\\d+)', name: 'watch', component: WatchView },
+    { path: '/search', name: 'search', component: SearchView },
   ],
 })
 
