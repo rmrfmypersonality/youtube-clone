@@ -12,7 +12,7 @@ from app.models import Job, JobStatus, Video, VideoStatus
 from app.repositories.jobs import JobRepository
 from app.storage import get_storage
 from worker import ffmpeg
-from worker.processor import reclaim_stale, run_once
+from worker.processor import reclaim_stale, cleanup_pending, run_once
 
 HEADERS = {"Content-Type": "application/octet-stream"}
 VALID_HEAD = b"\x00\x00\x00\x18ftypmp42\x00\x00\x00\x00mp42isom" + b"\x00" * 1024
@@ -127,3 +127,20 @@ async def test_reclaim_ignores_fresh_job(make_client, db):
     await reclaim_stale()
 
     assert await col(db, Job.status, Job.video_id == video_id) == JobStatus.running
+
+
+async def test_cleanup_pending_removes_only_stale_pending(make_client, make_video, db):
+    await make_client("alice")
+    old = await make_video("alice", status=VideoStatus.pending)
+    fresh = await make_video("alice", status=VideoStatus.pending)
+    old_uploaded = await make_video("alice", status=VideoStatus.uploaded)
+    long_ago = utcnow() - timedelta(hours=get_settings().pending_ttl_hours + 1)
+    await db.execute(
+        update(Video).where(Video.id.in_([old.id, old_uploaded.id])).values(created_at=long_ago)
+    )
+    await db.commit()
+
+    await cleanup_pending()
+
+    remaining = set((await db.execute(select(Video.id))).scalars())
+    assert remaining == {fresh.id, old_uploaded.id}

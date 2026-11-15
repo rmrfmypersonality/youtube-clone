@@ -1,9 +1,10 @@
 import pytest
 
-from app.models import Role, User, Video, VideoStatus, Visibility, Comment
+from app.models import Role, User, Video, VideoStatus, Visibility, Comment, Playlist
 from app.policies import roles
 from app.policies import videos as video_policy
 from app.policies import comments as comment_policy  # noqa: E402
+from app.policies import playlists as playlist_policy  # noqa: E402
 
 
 @pytest.mark.parametrize(
@@ -101,3 +102,28 @@ def test_comment_delete_policy():
     assert not comment_policy.can_delete_comment(STRANGER, comment)
     assert not comment_policy.can_delete_comment(MODERATOR, comment)
     assert not comment_policy.can_delete_comment(None, comment)
+
+
+def test_playlist_policies():
+    public, private = Playlist(owner_id=1, is_public=True), Playlist(owner_id=1, is_public=False)
+    assert playlist_policy.can_view_playlist(None, public)
+    assert playlist_policy.can_view_playlist(OWNER, private)
+    for viewer in (None, STRANGER, MODERATOR, ADMIN):
+        assert not playlist_policy.can_view_playlist(viewer, private)
+
+    assert playlist_policy.can_edit_playlist(OWNER, public)
+    assert playlist_policy.can_edit_playlist(ADMIN, public)
+    assert not playlist_policy.can_edit_playlist(STRANGER, public)
+    assert not playlist_policy.can_edit_playlist(MODERATOR, public)
+
+    assert playlist_policy.can_modify_items(OWNER, public)
+    assert not playlist_policy.can_modify_items(ADMIN, public)  # админ может удалить, но не наполнять
+
+
+def test_can_add_video_to_playlist():
+    own = Video(owner_id=1, visibility=Visibility.private)
+    assert playlist_policy.can_add_video(OWNER, own)
+    assert playlist_policy.can_add_video(STRANGER, _video(Visibility.public))
+    assert not playlist_policy.can_add_video(STRANGER, _video(Visibility.unlisted))
+    assert not playlist_policy.can_add_video(STRANGER, _video(Visibility.private))
+    assert not playlist_policy.can_add_video(STRANGER, _video(Visibility.public, hidden=True))

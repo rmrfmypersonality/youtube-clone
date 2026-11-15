@@ -46,3 +46,17 @@ def test_internal_url(tmp_path):
     assert storage.internal_url("videos/1/720.mp4") == "/media/videos/1/720.mp4"
     with pytest.raises(ValueError):
         storage.internal_url("../etc/passwd")
+
+async def test_delete_prefix(tmp_path):
+    storage = DiskStorage(tmp_path)
+    await storage.save_stream("videos/1/a.bin", gen(b"a"), max_bytes=10)
+    await storage.save_stream("videos/1/b.bin", gen(b"b"), max_bytes=10)
+    await storage.save_stream("videos/2/a.bin", gen(b"c"), max_bytes=10)
+
+    await storage.delete_prefix("videos/1")
+
+    assert not (tmp_path / "videos/1").exists()
+    assert (tmp_path / "videos/2/a.bin").exists()
+    await storage.delete_prefix("videos/999")  # такого нет: не ошибка
+    with pytest.raises(ValueError):
+        await storage.delete_prefix("")  # корень стирать нельзя
