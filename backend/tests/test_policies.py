@@ -1,8 +1,9 @@
 import pytest
 
-from app.models import Role, User, Video, VideoStatus, Visibility
+from app.models import Role, User, Video, VideoStatus, Visibility, Comment
 from app.policies import roles
 from app.policies import videos as video_policy
+from app.policies import comments as comment_policy  # noqa: E402
 
 
 @pytest.mark.parametrize(
@@ -91,3 +92,12 @@ def test_manage_shares_owner_only():
     assert video_policy.can_manage_shares(OWNER, video)
     for viewer in (None, STRANGER, MODERATOR, ADMIN):
         assert not video_policy.can_manage_shares(viewer, video)
+
+
+def test_comment_delete_policy():
+    comment = Comment(user_id=1)
+    assert comment_policy.can_delete_comment(OWNER, comment)
+    assert comment_policy.can_delete_comment(ADMIN, comment)
+    assert not comment_policy.can_delete_comment(STRANGER, comment)
+    assert not comment_policy.can_delete_comment(MODERATOR, comment)
+    assert not comment_policy.can_delete_comment(None, comment)
