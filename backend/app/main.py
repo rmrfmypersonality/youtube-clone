@@ -2,7 +2,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
 from app.core.exceptions import AppError
-from app.routers import auth, system, videos
+from app.routers import auth, comments, feed, reactions, system, videos
 
 app = FastAPI(title="YouTube Clone")
 
@@ -15,3 +15,6 @@ async def app_error_handler(request: Request, exc: AppError) -> JSONResponse:
 app.include_router(system.router)
 app.include_router(auth.router)
 app.include_router(videos.router)
+app.include_router(feed.router)
+app.include_router(reactions.router)
+app.include_router(comments.router)

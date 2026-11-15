@@ -11,18 +11,18 @@ from app.core.exceptions import (
     PayloadTooLarge,
     UnsupportedMedia,
 )
-from app.models import Channel, Job, User, Video, VideoStatus, Visibility
+from app.models import Channel, Job, User, Video, VideoStatus
 from app.policies import videos as video_policy
 from app.repositories.jobs import JobRepository
+from app.repositories.likes import LikeRepository
 from app.repositories.users import UserRepository
 from app.repositories.video_shares import ShareRepository
 from app.repositories.videos import VideoRepository
 from app.schemas.auth import ChannelBrief
 from app.schemas.videos import Quality, VideoCreate, VideoDetailOut, VideoOut
+from app.services.video_access import NOT_FOUND, VideoAccess
 from app.services.video_files import HEAD_SIZE, sniff_container
 from app.storage import Storage, StorageLimitExceeded
-
-NOT_FOUND = "Видео не найдено"
 
 
 async def _validated(stream: AsyncIterator[bytes]) -> AsyncIterator[bytes]:
@@ -51,6 +51,8 @@ class VideoService:
         self.jobs = JobRepository(session)
         self.shares = ShareRepository(session)
         self.users = UserRepository(session)
+        self.likes = LikeRepository(session)
+        self.access = VideoAccess(session)
 
     # --- создание и загрузка ---
 
@@ -107,28 +109,18 @@ class VideoService:
 
     # --- просмотр ---
 
-    async def _can_view(self, user: User | None, video: Video) -> bool:
-        is_shared = False
-        if (
-            user is not None
-            and video.visibility == Visibility.private
-            and not video_policy.is_owner(user, video)
-        ):
-            is_shared = await self.shares.exists(video.id, user.id)
-        return video_policy.can_view_video(user, video, is_shared=is_shared)
-
     async def _visible(self, user: User | None, video_id: int) -> tuple[Video, Channel]:
-        """Единая точка входа для всех чтений. Нет видео и нет прав выглядят одинаково: 404."""
-        found = await self.videos.get_with_channel(video_id)
-        if found is None or not await self._can_view(user, found[0]):
-            raise NotFound(NOT_FOUND)
-        return found
+        return await self.access.visible(user, video_id)
 
     async def get_visible(self, user: User | None, video_id: int) -> VideoDetailOut:
         video, channel = await self._visible(user, video_id)
+        likes_count = await self.likes.count_likes(video.id)
+        my_reaction = await self.likes.get_value(user.id, video.id) if user else 0
         return VideoDetailOut(
             **VideoOut.model_validate(video).model_dump(),
             channel=ChannelBrief.model_validate(channel),
+            likes_count=likes_count,
+            my_reaction=my_reaction,
         )
 
     async def stream_target(self, user: User | None, video_id: int, quality: Quality) -> str:

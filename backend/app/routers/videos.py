@@ -15,12 +15,11 @@ from app.schemas.videos import (
     ViewCountOut,
 )
 from app.services.videos import VideoService
+from app.core.params import IdPath
 
 router = APIRouter(prefix="/api/videos", tags=["videos"])
 
-INT_MAX = 2_147_483_647  # иначе asyncpg на огромном id падает 500, а не 422
-VideoId = Annotated[int, Path(ge=1, le=INT_MAX)]
-UserId = Annotated[int, Path(ge=1, le=INT_MAX)]
+VideoId = UserId = IdPath
 
 # private: чужие кеши (прокси) не должны сохранять защищённые файлы
 STREAM_CACHE = "private, no-cache"
