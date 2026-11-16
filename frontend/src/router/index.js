@@ -11,6 +11,7 @@ import UploadView from '../views/UploadView.vue'
 import WatchView from '../views/WatchView.vue'
 import AdminView from '../views/AdminView.vue'
 import ModerationView from '../views/ModerationView.vue'
+import SubscriptionsView from '../views/SubscriptionsView.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -26,6 +27,7 @@ const router = createRouter({
     { path: '/@:handle/:tab(videos|playlists)?', name: 'channel', component: ChannelView },
     { path: '/moderation', name: 'moderation', component: ModerationView, meta: { requiresAuth: true, role: 'moderator' },},
     { path: '/admin', name: 'admin', component: AdminView, meta: { requiresAuth: true, role: 'admin' },},
+    { path: '/subscriptions', name: 'subscriptions', component: SubscriptionsView, meta: { requiresAuth: true },},
   ],
 })
 

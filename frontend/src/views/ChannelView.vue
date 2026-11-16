@@ -170,7 +170,7 @@ async function createPlaylist() {
       </nav>
 
       <section v-if="tab === 'videos'" class="content">
-        <div class="grid">
+        <div class="video-grid">
           <VideoCard v-for="video in videos" :key="video.id" :video="video" />
         </div>
         <p v-if="videosDone && !videos.length" class="muted empty">На канале пока нет видео</p>
@@ -189,7 +189,7 @@ async function createPlaylist() {
         </form>
         <p v-if="createError" class="error" role="alert">{{ createError }}</p>
         <p v-if="playlistsError" class="error" role="alert">{{ playlistsError }}</p>
-        <div class="grid">
+        <div class="video-grid">
           <PlaylistCard v-for="pl in playlists" :key="pl.id" :playlist="pl" />
         </div>
         <p v-if="playlistsLoaded && !playlists.length" class="muted empty">Плейлистов пока нет</p>
@@ -266,11 +266,6 @@ h1 {
 }
 .content {
   padding-top: 24px;
-}
-.grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 24px 16px;
 }
 .create {
   display: flex;
