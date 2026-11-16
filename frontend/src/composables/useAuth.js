@@ -83,6 +83,11 @@ function setChannel(channel) {
 const isModerator = computed(() => ['moderator', 'admin'].includes(state.user?.role))
 const isAdmin = computed(() => state.user?.role === 'admin')
 
+// Аккаунт удалён на сервере (куки уже сброшены), локально просто забываем пользователя
+function forget() {
+  state.user = null
+}
+
 export function useAuth() {
-  return { state, init, login, register, logout, setChannel, isModerator, isAdmin }
+  return { state, init, login, register, logout, setChannel, forget, isModerator, isAdmin }
 }

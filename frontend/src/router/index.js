@@ -12,6 +12,7 @@ import WatchView from '../views/WatchView.vue'
 import AdminView from '../views/AdminView.vue'
 import ModerationView from '../views/ModerationView.vue'
 import SubscriptionsView from '../views/SubscriptionsView.vue'
+import SettingsView from '../views/SettingsView.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -28,6 +29,7 @@ const router = createRouter({
     { path: '/moderation', name: 'moderation', component: ModerationView, meta: { requiresAuth: true, role: 'moderator' },},
     { path: '/admin', name: 'admin', component: AdminView, meta: { requiresAuth: true, role: 'admin' },},
     { path: '/subscriptions', name: 'subscriptions', component: SubscriptionsView, meta: { requiresAuth: true },},
+    { path: '/settings', name: 'settings', component: SettingsView, meta: { requiresAuth: true } },
   ],
 })
 

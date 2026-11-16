@@ -1,13 +1,22 @@
 from sqlalchemy import and_, delete, false, func, or_, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import aliased
 
 from app.models import Channel, Playlist, PlaylistItem, Video, VideoStatus, Visibility
 
 
 def _visible(viewer_id: int | None):
-    """Какие видео из плейлиста видит зритель: готовые и (публичные нескрытые или свои)."""
-    listed = and_(Video.visibility == Visibility.public, Video.hidden_by_moderation.is_(False))
+    """Какие видео из плейлиста видит зритель: готовые и (публичные нескрытые или свои).
+    Видео скрытых каналов чужие не видят."""
+    # alias обязателен: без него подзапрос коррелирует с Channel внешнего запроса
+    hidden_channel = aliased(Channel)
+    hidden_owners = select(hidden_channel.owner_id).where(hidden_channel.is_hidden.is_(True))
+    listed = and_(
+        Video.visibility == Visibility.public,
+        Video.hidden_by_moderation.is_(False),
+        Video.owner_id.not_in(hidden_owners),
+    )
     cond = listed if viewer_id is None else or_(listed, Video.owner_id == viewer_id)
     return and_(Video.status == VideoStatus.ready, cond)
 

@@ -28,9 +28,13 @@ async def get_channel(handle: Handle, user: OptionalUser, session: SessionDep):
 
 @router.get("/{handle}/videos", response_model=VideoPage)
 async def channel_videos(
-    handle: Handle, session: SessionDep, cursor: CursorQuery = None, limit: LimitQuery = 24
+    handle: Handle,
+    user: OptionalUser,
+    session: SessionDep,
+    cursor: CursorQuery = None,
+    limit: LimitQuery = 24,
 ):
-    return await ChannelService(session).list_videos(handle, cursor=cursor, limit=limit)
+    return await ChannelService(session).list_videos(user, handle, cursor=cursor, limit=limit)
 
 
 @router.get("/{handle}/playlists", response_model=list[PlaylistOut])

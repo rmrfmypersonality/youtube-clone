@@ -163,3 +163,12 @@ def test_can_change_user_policy():
     assert not roles.can_change_user(MODERATOR, STRANGER)
     assert not roles.can_change_user(STRANGER, STRANGER)
     assert not roles.can_change_user(None, STRANGER)
+
+
+def test_hidden_channel_blocks_everyone_but_owner():
+    video = _video()
+    assert video_policy.can_view_video(OWNER, video, channel_hidden=True)
+    for viewer in (None, STRANGER, MODERATOR, ADMIN):
+        assert not video_policy.can_view_video(viewer, video, channel_hidden=True)
+    shared_private = _video(Visibility.private)
+    assert not video_policy.can_view_video(STRANGER, shared_private, is_shared=True, channel_hidden=True)

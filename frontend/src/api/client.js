@@ -172,4 +172,7 @@ export const api = {
     list: () => request('GET', '/subscriptions'),
     feed: (cursor) => request('GET', `/subscriptions/feed${qs({ cursor })}`),
   },
+  account: {
+    remove: (password) => request('POST', '/account/delete', { password }),
+  },
 }
