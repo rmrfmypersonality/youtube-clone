@@ -55,6 +55,7 @@ class Video(Base):
     owner_id: Mapped[int] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), index=True
     )
+    category_id: Mapped[int] = mapped_column(ForeignKey("categories.id"), index=True)
     title: Mapped[str] = mapped_column(String(100))
     description: Mapped[str] = mapped_column(String(5000), default="", server_default="")
     status: Mapped[VideoStatus] = mapped_column(

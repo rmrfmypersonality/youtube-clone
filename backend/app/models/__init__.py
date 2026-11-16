@@ -11,6 +11,7 @@ from app.models.subscription import Subscription
 from app.models.user import Role, User
 from app.models.video import Video, VideoStatus, Visibility
 from app.models.video_share import VideoShare
+from app.models.category import Category
 
 __all__ = [
     "AuditLog",
@@ -33,4 +34,5 @@ __all__ = [
     "VideoShare",
     "VideoStatus",
     "Visibility",
+    "Category",
 ]
