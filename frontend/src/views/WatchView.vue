@@ -343,7 +343,7 @@ function onSubscription(res) {
   height: 40px;
   border-radius: 50%;
   background: var(--link);
-  color: #0f0f0f;
+  color: var(--on-link);
   font-weight: 500;
 }
 .channel-name {
