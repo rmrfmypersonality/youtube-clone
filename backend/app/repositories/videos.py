@@ -96,3 +96,10 @@ class VideoRepository:
         if not ids:
             return []
         return list((await self.session.execute(select(Video).where(Video.id.in_(ids)))).scalars())
+
+    async def storage_refs(self, owner_id: int) -> list[tuple[int, str | None]]:
+        """(id, original_path) всех видео владельца: нужно, чтобы убрать файлы после удаления аккаунта."""
+        rows = await self.session.execute(
+            select(Video.id, Video.original_path).where(Video.owner_id == owner_id)
+        )
+        return [(r.id, r.original_path) for r in rows]

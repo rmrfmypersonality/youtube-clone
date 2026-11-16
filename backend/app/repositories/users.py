@@ -1,8 +1,8 @@
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.sql import escape_like
-from app.models import User
+from app.models import Role, User
 
 
 class UserRepository:
@@ -38,3 +38,11 @@ class UserRepository:
                 )
             )
         return list((await self.session.execute(stmt)).scalars().unique())
+
+    async def has_other_active_admin(self, user_id: int) -> bool:
+        stmt = (
+            select(func.count())
+            .select_from(User)
+            .where(User.role == Role.admin, User.is_active.is_(True), User.id != user_id)
+        )
+        return (await self.session.execute(stmt)).scalar_one() > 0
