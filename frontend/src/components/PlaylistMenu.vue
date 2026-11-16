@@ -69,7 +69,7 @@ async function create() {
 
 <template>
   <div class="wrap">
-    <button type="button" class="chip" @click="toggleOpen">Сохранить</button>
+    <button type="button" class="pill" @click="toggleOpen">Сохранить</button>
     <div v-if="open" class="backdrop" @click="open = false" />
     <div v-if="open" class="popover">
       <div class="title">Сохранить в…</div>
@@ -92,18 +92,6 @@ async function create() {
 <style scoped>
 .wrap {
   position: relative;
-}
-.chip {
-  padding: 4px 12px;
-  border: none;
-  border-radius: 8px;
-  background: var(--surface);
-  color: var(--text);
-  font: inherit;
-  cursor: pointer;
-}
-.chip:hover {
-  background: var(--surface-hover);
 }
 .backdrop {
   position: fixed;
