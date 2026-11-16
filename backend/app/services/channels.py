@@ -10,8 +10,10 @@ from app.repositories.videos import VideoRepository
 from app.schemas.channels import ChannelOut, ChannelUpdate, SubscriptionOut
 from app.schemas.videos import VideoPage
 from app.services.feed import video_page
+from app.schemas.auth import ChannelBrief
 
 CHANNEL_NOT_FOUND = "Канал не найден"
+MAX_SUBSCRIPTIONS = 200
 
 
 class ChannelService:
@@ -88,3 +90,7 @@ class ChannelService:
         await self.subs.remove(user.id, channel.id)
         await self.session.commit()
         return SubscriptionOut(subscribed=False, subscribers_count=await self.subs.count(channel.id))
+
+    async def list_subscribed(self, user: User) -> list[ChannelBrief]:
+        channels = await self.subs.list_channels(user.id, MAX_SUBSCRIPTIONS)
+        return [ChannelBrief.model_validate(c) for c in channels]
