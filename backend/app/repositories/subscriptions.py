@@ -2,7 +2,7 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import Subscription
+from app.models import Channel, Subscription
 
 
 class SubscriptionRepository:
@@ -35,3 +35,13 @@ class SubscriptionRepository:
             Subscription.channel_id == channel_id
         )
         return (await self.session.execute(stmt)).scalar_one()
+
+    async def list_channels(self, user_id: int, limit: int) -> list[Channel]:
+        stmt = (
+            select(Channel)
+            .join(Subscription, Subscription.channel_id == Channel.id)
+            .where(Subscription.subscriber_id == user_id)
+            .order_by(func.lower(Channel.name), Channel.id)
+            .limit(limit)
+        )
+        return list((await self.session.execute(stmt)).scalars())

@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { api } from '../api/client'
 import { useAuth } from '../composables/useAuth'
+import { useSubscriptions } from '../composables/useSubscriptions'
 
 const props = defineProps({
   handle: { type: String, required: true },
@@ -13,6 +14,7 @@ const emit = defineEmits(['changed'])
 const route = useRoute()
 const router = useRouter()
 const { state: auth } = useAuth()
+const { reload: reloadSubscriptions } = useSubscriptions()
 const busy = ref(false)
 const error = ref('')
 
@@ -29,6 +31,7 @@ async function toggle() {
       ? await api.channels.unsubscribe(props.handle)
       : await api.channels.subscribe(props.handle)
     emit('changed', res)
+    reloadSubscriptions()
   } catch (e) {
     error.value = e.message
   } finally {

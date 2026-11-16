@@ -22,8 +22,39 @@ a {
   text-decoration: none;
 }
 
+/* Контент сдвигается вслед за постоянным сайдбаром */
 .page {
+  min-width: 0;
   padding-top: var(--header-height);
+  transition: margin-left 0.2s;
+}
+.page.offset-full {
+  margin-left: var(--sidebar-width);
+}
+.page.offset-mini {
+  margin-left: var(--sidebar-mini-width);
+}
+
+/* Сетка карточек: 1 / 2 / 3 / 4 колонки */
+.video-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 24px 16px;
+}
+@media (min-width: 600px) {
+  .video-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (min-width: 1000px) {
+  .video-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (min-width: 1400px) {
+  .video-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
 }
 
 .field {
@@ -94,12 +125,63 @@ a {
 
 .btn-primary {
   background: var(--link);
-  color: #0f0f0f;
+  color: var(--on-link);
 }
 
 .btn-primary:hover {
   filter: brightness(1.1);
   background: var(--link);
+}
+
+/* Скруглённая кнопка-«таблетка» (чипсы, лайки, действия под видео) */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 16px;
+  border: none;
+  border-radius: 18px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.pill:hover {
+  background: var(--surface-hover);
+}
+.pill.active {
+  background: var(--text);
+  color: var(--bg);
+}
+.pill.sm {
+  height: 28px;
+  padding: 0 12px;
+}
+.pill:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.icon-btn {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: none;
+  color: var(--text);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.icon-btn:hover {
+  background: var(--surface);
 }
 
 .error {

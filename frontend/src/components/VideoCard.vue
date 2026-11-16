@@ -3,21 +3,30 @@ import { formatDuration, formatRelative, formatViews } from '../composables/form
 
 defineProps({
   video: { type: Object, required: true },
-  horizontal: Boolean,
+  horizontal: Boolean, // результаты поиска: превью слева, текст справа
+  compact: Boolean, // правая колонка на странице просмотра
 })
 </script>
 
 <template>
-  <article class="card" :class="{ horizontal }">
+  <article class="card" :class="{ horizontal, compact }">
     <RouterLink :to="`/watch/${video.id}`" class="thumb">
       <img :src="`/api/videos/${video.id}/thumbnail`" :alt="video.title" loading="lazy" />
       <span class="duration">{{ formatDuration(video.duration_seconds) }}</span>
     </RouterLink>
     <div class="info">
-      <span class="avatar">{{ video.channel.name[0]?.toUpperCase() }}</span>
+      <RouterLink
+        :to="`/@${video.channel.handle}`"
+        class="avatar"
+        :aria-label="video.channel.name"
+      >
+        {{ video.channel.name[0]?.toUpperCase() }}
+      </RouterLink>
       <div class="text">
         <RouterLink :to="`/watch/${video.id}`" class="title">{{ video.title }}</RouterLink>
-        <RouterLink :to="`/@${video.channel.handle}`" class="channel">{{ video.channel.name }}</RouterLink>
+        <RouterLink :to="`/@${video.channel.handle}`" class="channel">
+          {{ video.channel.name }}
+        </RouterLink>
         <div class="muted">
           {{ formatViews(video.views_count) }} • {{ formatRelative(video.created_at) }}
         </div>
@@ -71,7 +80,7 @@ defineProps({
   height: 36px;
   border-radius: 50%;
   background: var(--link);
-  color: #0f0f0f;
+  color: var(--on-link);
   font-weight: 500;
 }
 .text {
@@ -90,22 +99,37 @@ defineProps({
   line-clamp: 2;
   -webkit-box-orient: vertical;
 }
-.horizontal {
-  flex-direction: row;
-}
-.horizontal .thumb {
-  flex: 0 0 360px;
-  max-width: 45%;
-}
-.horizontal .avatar {
-  display: none;
-}
 .channel {
   display: block;
   color: var(--text-secondary);
 }
 .channel:hover {
   color: var(--text);
+}
+
+.horizontal,
+.compact {
+  flex-direction: row;
+}
+.horizontal .avatar,
+.compact .avatar {
+  display: none;
+}
+.horizontal .thumb {
+  flex: 0 0 360px;
+  max-width: 45%;
+}
+.compact {
+  gap: 8px;
+}
+.compact .thumb {
+  flex: 0 0 168px;
+}
+.compact .title {
+  font-size: 14px;
+}
+.compact .info {
+  font-size: 12px;
 }
 @media (max-width: 600px) {
   .horizontal {

@@ -1,5 +1,6 @@
 <script setup>
 import { api } from '../api/client'
+import ChipBar from '../components/ChipBar.vue'
 import InfiniteScroll from '../components/InfiniteScroll.vue'
 import VideoCard from '../components/VideoCard.vue'
 import { usePagedList } from '../composables/usePagedList'
@@ -8,25 +9,28 @@ const { items, loading, done, error, loadMore } = usePagedList((cursor) => api.v
 </script>
 
 <template>
-  <div class="home">
-    <div class="grid">
-      <VideoCard v-for="video in items" :key="video.id" :video="video" />
+  <div>
+    <ChipBar />
+    <div class="content">
+      <div class="video-grid">
+        <VideoCard v-for="video in items" :key="video.id" :video="video" />
+      </div>
+      <p v-if="done && !items.length" class="muted empty">Пока нет ни одного видео</p>
+      <InfiniteScroll :loading="loading" :done="done" :error="error" @load="loadMore" />
     </div>
-    <p v-if="done && !items.length" class="muted empty">Пока нет ни одного видео</p>
-    <InfiniteScroll :loading="loading" :done="done" :error="error" @load="loadMore" />
   </div>
 </template>
 
 <style scoped>
-.home {
-  padding: 24px;
-}
-.grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 24px 16px;
+.content {
+  padding: 8px 24px 24px;
 }
 .empty {
   text-align: center;
+}
+@media (max-width: 600px) {
+  .content {
+    padding: 8px 12px 24px;
+  }
 }
 </style>

@@ -2,17 +2,21 @@
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { api } from '../api/client'
-import { useAuth } from '../composables/useAuth'
-import { formatRelative, formatViews, formatSubscribers } from '../composables/format'
+import AppIcon from '../components/AppIcon.vue'
 import CommentsSection from '../components/CommentsSection.vue'
 import PlaylistMenu from '../components/PlaylistMenu.vue'
-import SubscribeButton from '../components/SubscribeButton.vue'
+import RelatedVideos from '../components/RelatedVideos.vue'
 import ReportDialog from '../components/ReportDialog.vue'
+import SubscribeButton from '../components/SubscribeButton.vue'
+import { copyText } from '../composables/clipboard'
+import { formatRelative, formatSubscribers, formatViews } from '../composables/format'
+import { useAuth } from '../composables/useAuth'
 
 const QUALITIES = ['720', '360']
 const VISIBILITY_LABELS = { unlisted: 'Доступ по ссылке', private: 'Ограниченный доступ' }
 
 const route = useRoute()
+const router = useRouter()
 const { state: auth, init, isModerator } = useAuth()
 
 const video = ref(null)
@@ -21,62 +25,23 @@ const error = ref('')
 const playerError = ref(false)
 const quality = ref('720')
 const player = ref(null)
+const descOpen = ref(false)
 let counted = false
 let loadToken = 0
 
 const isOwner = computed(() => !!video.value && auth.user?.id === video.value.owner_id)
 const streamUrl = computed(() => `/api/videos/${video.value.id}/stream?quality=${quality.value}`)
 const thumbUrl = computed(() => `/api/videos/${video.value.id}/thumbnail`)
-
-const router = useRouter()
-const reacting = ref(false)
-const reactError = ref('')
-
-const reportOpen = ref(false)
-const moderating = ref(false)
-const moderationError = ref('')
-
-async function toggleHidden() {
-  if (moderating.value) return
-  moderating.value = true
-  moderationError.value = ''
-  try {
-    const res = video.value.hidden_by_moderation
-      ? await api.moderation.unhideVideo(video.value.id)
-      : await api.moderation.hideVideo(video.value.id)
-    video.value.hidden_by_moderation = res.hidden
-  } catch (e) {
-    moderationError.value = e.message
-  } finally {
-    moderating.value = false
-  }
-}
-
-async function react(value) {
-  if (!auth.user) {
-    router.push({ name: 'login', query: { next: route.fullPath } })
-    return
-  }
-  if (reacting.value) return
-  reacting.value = true
-  reactError.value = ''
-  try {
-    const next = video.value.my_reaction === value ? 0 : value // повторный клик снимает реакцию
-    const res = await api.videos.react(video.value.id, next)
-    video.value.likes_count = res.likes_count
-    video.value.my_reaction = res.my_reaction
-  } catch (e) {
-    reactError.value = e.message
-  } finally {
-    reacting.value = false
-  }
-}
+const longDescription = computed(
+  () => !!video.value && (video.value.description.length > 120 || video.value.description.includes('\n')),
+)
 
 async function load(id) {
   const token = ++loadToken
   loading.value = true
   error.value = ''
   playerError.value = false
+  descOpen.value = false
   video.value = null
   quality.value = '720'
   counted = false
@@ -129,145 +94,242 @@ function setQuality(q) {
   )
 }
 
+// --- подписка ---
 function onSubscription(res) {
   video.value.is_subscribed = res.subscribed
   video.value.subscribers_count = res.subscribers_count
+}
+
+// --- лайки ---
+const reacting = ref(false)
+const reactError = ref('')
+
+async function react(value) {
+  if (!auth.user) {
+    router.push({ name: 'login', query: { next: route.fullPath } })
+    return
+  }
+  if (reacting.value) return
+  reacting.value = true
+  reactError.value = ''
+  try {
+    const next = video.value.my_reaction === value ? 0 : value // повторный клик снимает реакцию
+    const res = await api.videos.react(video.value.id, next)
+    video.value.likes_count = res.likes_count
+    video.value.my_reaction = res.my_reaction
+  } catch (e) {
+    reactError.value = e.message
+  } finally {
+    reacting.value = false
+  }
+}
+
+// --- поделиться ---
+const shareNote = ref('')
+let shareTimer = null
+
+async function share() {
+  const ok = await copyText(`${location.origin}/watch/${video.value.id}`)
+  shareNote.value = ok ? 'Ссылка скопирована' : 'Не удалось скопировать ссылку'
+  clearTimeout(shareTimer)
+  shareTimer = setTimeout(() => (shareNote.value = ''), 2500)
+}
+
+// --- жалоба и модерация ---
+const reportOpen = ref(false)
+const moderating = ref(false)
+const moderationError = ref('')
+
+async function toggleHidden() {
+  if (moderating.value) return
+  moderating.value = true
+  moderationError.value = ''
+  try {
+    const res = video.value.hidden_by_moderation
+      ? await api.moderation.unhideVideo(video.value.id)
+      : await api.moderation.hideVideo(video.value.id)
+    video.value.hidden_by_moderation = res.hidden
+  } catch (e) {
+    moderationError.value = e.message
+  } finally {
+    moderating.value = false
+  }
 }
 </script>
 
 <template>
   <div class="watch">
-    <p v-if="loading" class="muted">Загрузка…</p>
-    <p v-else-if="error" class="error" role="alert">{{ error }}</p>
+    <p v-if="loading" class="muted pad">Загрузка…</p>
+    <p v-else-if="error" class="error pad" role="alert">{{ error }}</p>
 
-    <template v-else-if="video">
-      <div v-if="video.status === 'ready'" class="player">
-        <video
-          ref="player"
-          :src="streamUrl"
-          :poster="thumbUrl"
-          controls
-          playsinline
-          preload="metadata"
-          @play="onPlay"
-          @error="playerError = true"
-        />
-      </div>
-      <div v-else class="player placeholder">
-        <span v-if="video.status === 'failed'">Не удалось обработать видео</span>
-        <span v-else>Видео ещё обрабатывается…</span>
-      </div>
-
-      <p v-if="playerError" class="error" role="alert">
-        Не удалось загрузить видео. Обновите страницу.
-      </p>
-
-      <div v-if="video.status === 'ready'" class="quality">
-        <button
-          v-for="q in QUALITIES"
-          :key="q"
-          type="button"
-          class="chip"
-          :class="{ active: quality === q }"
-          @click="setQuality(q)"
-        >
-          {{ q }}p
-        </button>
-      </div>
-
-      <h1 class="title">{{ video.title }}</h1>
-
-      <p v-if="video.hidden_by_moderation" class="banner">
-        Видео скрыто модератором{{ isOwner ? '. Его видите только вы и модераторы.' : '.' }}
-      </p>
-      <p v-if="isOwner && VISIBILITY_LABELS[video.visibility]" class="badge">
-        {{ VISIBILITY_LABELS[video.visibility] }}
-      </p>
-
-      <div class="channel">
-        <RouterLink :to="`/@${video.channel.handle}`" class="avatar">
-          {{ video.channel.name[0]?.toUpperCase() }}
-        </RouterLink>
-        <div class="channel-info">
-          <RouterLink :to="`/@${video.channel.handle}`" class="channel-name">
-            {{ video.channel.name }}
-          </RouterLink>
-          <div class="muted">{{ formatSubscribers(video.subscribers_count) }}</div>
+    <div v-else-if="video" class="layout">
+      <div class="primary">
+        <div v-if="video.status === 'ready'" class="player">
+          <video
+            ref="player"
+            :src="streamUrl"
+            :poster="thumbUrl"
+            controls
+            playsinline
+            preload="metadata"
+            @play="onPlay"
+            @error="playerError = true"
+          />
         </div>
-        <SubscribeButton
-          v-if="!isOwner"
-          :handle="video.channel.handle"
-          :subscribed="video.is_subscribed"
-          @changed="onSubscription"
-        />
-      </div>
-
-      <div v-if="video.status === 'ready'" class="actions">
-        <button
-          type="button"
-          class="chip"
-          :class="{ active: video.my_reaction === 1 }"
-          :disabled="reacting"
-          @click="react(1)"
-        >
-          👍 {{ video.likes_count }}
-        </button>
-        <button
-          type="button"
-          class="chip"
-          :class="{ active: video.my_reaction === -1 }"
-          :disabled="reacting"
-          @click="react(-1)"
-        >
-          👎
-        </button>
-        <PlaylistMenu :video-id="video.id" />
-        <button
-          v-if="auth.user && !isOwner"
-          type="button"
-          class="chip"
-          @click="reportOpen = true"
-        >
-          Пожаловаться
-        </button>
-        <button
-          v-if="isModerator"
-          type="button"
-          class="chip"
-          :disabled="moderating"
-          @click="toggleHidden"
-        >
-          {{ video.hidden_by_moderation ? 'Вернуть видео' : 'Скрыть видео' }}
-        </button>
-      </div>
-      <p v-if="reactError" class="error" role="alert">{{ reactError }}</p>
-      <p v-if="moderationError" class="error" role="alert">{{ moderationError }}</p>
-      <ReportDialog
-        v-if="reportOpen"
-        kind="video"
-        :target-id="video.id"
-        @close="reportOpen = false"
-      />
-
-      <div class="description">
-        <div class="meta">
-          {{ formatViews(video.views_count) }} • {{ formatRelative(video.created_at) }}
+        <div v-else class="player placeholder">
+          <span v-if="video.status === 'failed'">Не удалось обработать видео</span>
+          <span v-else>Видео ещё обрабатывается…</span>
         </div>
-        <p class="text">{{ video.description || 'Описания нет' }}</p>
+
+        <p v-if="playerError" class="error" role="alert">
+          Не удалось загрузить видео. Обновите страницу.
+        </p>
+
+        <div v-if="video.status === 'ready'" class="quality">
+          <button
+            v-for="q in QUALITIES"
+            :key="q"
+            type="button"
+            class="pill sm"
+            :class="{ active: quality === q }"
+            @click="setQuality(q)"
+          >
+            {{ q }}p
+          </button>
+        </div>
+
+        <h1 class="title">{{ video.title }}</h1>
+
+        <p v-if="video.hidden_by_moderation" class="banner">
+          Видео скрыто модератором{{ isOwner ? '. Его видите только вы и модераторы.' : '.' }}
+        </p>
+        <p v-if="isOwner && VISIBILITY_LABELS[video.visibility]" class="badge">
+          {{ VISIBILITY_LABELS[video.visibility] }}
+        </p>
+
+        <div class="bar">
+          <div class="channel">
+            <RouterLink :to="`/@${video.channel.handle}`" class="avatar">
+              {{ video.channel.name[0]?.toUpperCase() }}
+            </RouterLink>
+            <div class="channel-info">
+              <RouterLink :to="`/@${video.channel.handle}`" class="channel-name">
+                {{ video.channel.name }}
+              </RouterLink>
+              <div class="muted">{{ formatSubscribers(video.subscribers_count) }}</div>
+            </div>
+            <SubscribeButton
+              v-if="!isOwner"
+              :handle="video.channel.handle"
+              :subscribed="video.is_subscribed"
+              @changed="onSubscription"
+            />
+          </div>
+
+          <div v-if="video.status === 'ready'" class="actions">
+            <div class="rate">
+              <button
+                type="button"
+                class="rate-btn like"
+                :class="{ active: video.my_reaction === 1 }"
+                :aria-pressed="video.my_reaction === 1"
+                :disabled="reacting"
+                @click="react(1)"
+              >
+                <AppIcon name="like" :size="20" />
+                <span>{{ video.likes_count }}</span>
+              </button>
+              <button
+                type="button"
+                class="rate-btn dislike"
+                :class="{ active: video.my_reaction === -1 }"
+                :aria-pressed="video.my_reaction === -1"
+                aria-label="Не нравится"
+                :disabled="reacting"
+                @click="react(-1)"
+              >
+                <AppIcon name="dislike" :size="20" />
+              </button>
+            </div>
+
+            <button type="button" class="pill" @click="share">
+              <AppIcon name="share" :size="20" />
+              <span>Поделиться</span>
+            </button>
+            <PlaylistMenu :video-id="video.id" />
+            <button
+              v-if="auth.user && !isOwner"
+              type="button"
+              class="pill"
+              @click="reportOpen = true"
+            >
+              <AppIcon name="flag" :size="20" />
+              <span>Пожаловаться</span>
+            </button>
+            <button
+              v-if="isModerator"
+              type="button"
+              class="pill"
+              :disabled="moderating"
+              @click="toggleHidden"
+            >
+              <AppIcon name="shield" :size="20" />
+              <span>{{ video.hidden_by_moderation ? 'Вернуть видео' : 'Скрыть видео' }}</span>
+            </button>
+          </div>
+        </div>
+
+        <p v-if="shareNote" class="muted" role="status">{{ shareNote }}</p>
+        <p v-if="reactError" class="error" role="alert">{{ reactError }}</p>
+        <p v-if="moderationError" class="error" role="alert">{{ moderationError }}</p>
+        <ReportDialog
+          v-if="reportOpen"
+          kind="video"
+          :target-id="video.id"
+          @close="reportOpen = false"
+        />
+
+        <div class="description" :class="{ open: descOpen }">
+          <div class="meta">
+            {{ formatViews(video.views_count) }} • {{ formatRelative(video.created_at) }}
+          </div>
+          <p class="text">{{ video.description || 'Описания нет' }}</p>
+          <button v-if="longDescription" type="button" class="link more" @click="descOpen = !descOpen">
+            {{ descOpen ? 'Свернуть' : 'Ещё' }}
+          </button>
+        </div>
+
+        <CommentsSection v-if="video.status === 'ready'" :key="video.id" :video-id="video.id" />
       </div>
-      <CommentsSection v-if="video.status === 'ready'" :key="video.id" :video-id="video.id" />
-    </template>
+
+      <aside class="secondary">
+        <RelatedVideos :exclude-id="video.id" />
+      </aside>
+    </div>
   </div>
 </template>
 
 <style scoped>
 .watch {
-  max-width: 1000px;
+  max-width: 1754px;
   margin: 0 auto;
-  padding: 24px 16px;
+  padding: 24px;
 }
-.muted {
-  color: var(--text-secondary);
+.pad {
+  padding: 0;
+}
+.layout {
+  display: flex;
+  gap: 24px;
+  align-items: flex-start;
+}
+.primary {
+  flex: 1;
+  min-width: 0;
+}
+.secondary {
+  flex: 0 0 402px;
+  width: 402px;
 }
 .player {
   aspect-ratio: 16 / 9;
@@ -292,27 +354,11 @@ function onSubscription(res) {
   gap: 8px;
   margin-top: 10px;
 }
-.chip {
-  padding: 4px 12px;
-  border: none;
-  border-radius: 8px;
-  background: var(--surface);
-  color: var(--text);
-  font: inherit;
-  cursor: pointer;
-  transition: background 0.15s;
-}
-.chip:hover {
-  background: var(--surface-hover);
-}
-.chip.active {
-  background: var(--text);
-  color: var(--bg);
-}
 .title {
-  margin: 16px 0 8px;
+  margin: 12px 0 8px;
   font-size: 20px;
   font-weight: 600;
+  line-height: 1.3;
   overflow-wrap: anywhere;
 }
 .banner {
@@ -330,30 +376,82 @@ function onSubscription(res) {
   background: var(--surface);
   color: var(--text-secondary);
 }
+.bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 16px;
+  align-items: center;
+  justify-content: space-between;
+  margin: 8px 0 12px;
+}
 .channel {
   display: flex;
   align-items: center;
   gap: 12px;
-  margin: 8px 0 16px;
+  min-width: 0;
 }
 .avatar {
   display: grid;
+  flex: none;
   place-items: center;
   width: 40px;
   height: 40px;
   border-radius: 50%;
   background: var(--link);
-  color: #0f0f0f;
+  color: var(--on-link);
   font-weight: 500;
+}
+.channel-info {
+  min-width: 0;
+  margin-right: 12px;
 }
 .channel-name {
   display: block;
   color: var(--text);
   font-weight: 500;
 }
-.channel-info {
-  min-width: 0;
-  margin-right: 12px;
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.rate {
+  display: flex;
+  overflow: hidden;
+  border-radius: 18px;
+  background: var(--surface);
+}
+.rate-btn {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  height: 36px;
+  padding: 0 16px;
+  border: none;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.rate-btn:hover {
+  background: var(--surface-hover);
+}
+.rate-btn.like {
+  padding-right: 12px;
+  border-right: 1px solid var(--border);
+}
+.rate-btn.dislike {
+  padding-left: 12px;
+}
+.rate-btn.active {
+  color: var(--link);
+}
+.rate-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
 }
 .description {
   padding: 12px;
@@ -364,13 +462,50 @@ function onSubscription(res) {
   font-weight: 500;
 }
 .text {
+  display: -webkit-box;
   margin: 8px 0 0;
+  overflow: hidden;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  -webkit-box-orient: vertical;
 }
-.actions {
-  display: flex;
-  gap: 8px;
-  margin: 0 0 16px;
+.description.open .text {
+  display: block;
+  overflow: visible;
+}
+.more {
+  margin-top: 8px;
+}
+
+@media (max-width: 1100px) {
+  .layout {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .secondary {
+    flex: none;
+    width: auto;
+  }
+}
+@media (max-width: 600px) {
+  .watch {
+    padding: 0 0 24px;
+  }
+  .primary > :not(.player) {
+    margin-left: 12px;
+    margin-right: 12px;
+  }
+  .primary > .description {
+    margin-left: 12px;
+    margin-right: 12px;
+  }
+  .player {
+    border-radius: 0;
+  }
+  .secondary {
+    padding: 0 12px;
+  }
 }
 </style>

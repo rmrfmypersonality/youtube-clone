@@ -40,3 +40,9 @@ class FeedService:
             return VideoPage(items=[], next_cursor=None)
         rows = await self.videos.list_public(query=q, cursor=cursor, limit=limit)
         return video_page(rows, limit)
+
+    async def subscriptions(self, user_id: int, *, cursor: int | None, limit: int) -> VideoPage:
+        rows = await self.videos.list_public(
+            query=None, cursor=cursor, limit=limit, subscriber_id=user_id
+        )
+        return video_page(rows, limit)
