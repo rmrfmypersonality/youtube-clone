@@ -49,6 +49,12 @@ class PlaylistService:
         playlist = await self.playlists.get(playlist_id)
         if playlist is None or not policy.can_view_playlist(user, playlist):
             raise NotFound(NOT_FOUND)
+        if not policy.is_owner(user, playlist):
+            owner_channel = (await self.channels.by_owner_ids({playlist.owner_id})).get(
+                playlist.owner_id
+            )
+            if owner_channel is not None and owner_channel.is_hidden:
+                raise NotFound(NOT_FOUND)  # плейлисты скрытого канала не видны
         return playlist
 
     async def _editable(self, user: User, playlist_id: int) -> Playlist:
@@ -134,9 +140,9 @@ class PlaylistService:
 
     async def list_for_channel(self, viewer: User | None, handle: str) -> list[PlaylistOut]:
         channel = await self.channels.get_by_handle(handle)
-        if channel is None:
+        is_owner = viewer is not None and channel is not None and viewer.id == channel.owner_id
+        if channel is None or (channel.is_hidden and not is_owner):
             raise NotFound("Канал не найден")
-        is_owner = viewer is not None and viewer.id == channel.owner_id
         rows = await self.playlists.list_summaries(
             owner_id=channel.owner_id,
             viewer_id=viewer.id if viewer else None,

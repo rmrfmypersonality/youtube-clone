@@ -24,16 +24,25 @@ class ChannelService:
         self.users = UserRepository(session)
         self.videos = VideoRepository(session)
 
-    async def _get(self, handle: str) -> Channel:
+    async def _get(
+            self, handle: str, viewer: User | None = None, *, allow_hidden: bool = False
+    ) -> Channel:
         channel = await self.channels.get_by_handle(handle)
         if channel is None:
             raise NotFound(CHANNEL_NOT_FOUND)
+        is_owner = viewer is not None and viewer.id == channel.owner_id
+        if channel.is_hidden and not is_owner and not allow_hidden:
+            raise NotFound(CHANNEL_NOT_FOUND)  # скрытый канал выглядит как несуществующий
         return channel
 
     async def _out(self, channel: Channel, viewer: User | None) -> ChannelOut:
         is_subscribed = False
         if viewer is not None:
             is_subscribed = await self.subs.exists(viewer.id, channel.id)
+        # Скрытый канал в публичной выдаче видео не показывает, счётчик не должен врать
+        videos_count = (
+            0 if channel.is_hidden else await self.channels.count_public_videos(channel.owner_id)
+        )
         return ChannelOut(
             id=channel.id,
             handle=channel.handle,
@@ -41,13 +50,14 @@ class ChannelService:
             description=channel.description,
             created_at=channel.created_at,
             subscribers_count=await self.subs.count(channel.id),
-            videos_count=await self.channels.count_public_videos(channel.owner_id),
+            videos_count=videos_count,
             is_subscribed=is_subscribed,
             is_owner=viewer is not None and viewer.id == channel.owner_id,
+            is_hidden=channel.is_hidden,
         )
 
     async def get(self, viewer: User | None, handle: str) -> ChannelOut:
-        return await self._out(await self._get(handle), viewer)
+        return await self._out(await self._get(handle, viewer), viewer)
 
     async def update_mine(self, user: User, data: ChannelUpdate) -> ChannelOut:
         channel = user.channel
@@ -55,7 +65,7 @@ class ChannelService:
             other = await self.channels.get_by_handle(data.handle)
             name_owner = await self.users.get_by_username(data.handle)
             if (other is not None and other.id != channel.id) or (
-                name_owner is not None and name_owner.id != user.id
+                    name_owner is not None and name_owner.id != user.id
             ):
                 raise Conflict("Этот handle уже занят")
             channel.handle = data.handle
@@ -63,6 +73,8 @@ class ChannelService:
             channel.name = data.name
         if data.description is not None:
             channel.description = data.description
+        if data.is_hidden is not None:
+            channel.is_hidden = data.is_hidden
         try:
             await self.session.commit()
         except IntegrityError:  # гонка двух смен handle
@@ -70,15 +82,17 @@ class ChannelService:
             raise Conflict("Этот handle уже занят") from None
         return await self._out(channel, user)
 
-    async def list_videos(self, handle: str, *, cursor: int | None, limit: int) -> VideoPage:
-        channel = await self._get(handle)
+    async def list_videos(
+            self, viewer: User | None, handle: str, *, cursor: int | None, limit: int
+    ) -> VideoPage:
+        channel = await self._get(handle, viewer)
         rows = await self.videos.list_public(
             query=None, cursor=cursor, limit=limit, owner_id=channel.owner_id
         )
         return video_page(rows, limit)
 
     async def subscribe(self, user: User, handle: str) -> SubscriptionOut:
-        channel = await self._get(handle)
+        channel = await self._get(handle, user)
         if channel.owner_id == user.id:
             raise AppError("Нельзя подписаться на свой канал")
         await self.subs.add(user.id, channel.id)
@@ -86,7 +100,8 @@ class ChannelService:
         return SubscriptionOut(subscribed=True, subscribers_count=await self.subs.count(channel.id))
 
     async def unsubscribe(self, user: User, handle: str) -> SubscriptionOut:
-        channel = await self._get(handle)
+        # Отписаться можно и от скрытого канала
+        channel = await self._get(handle, user, allow_hidden=True)
         await self.subs.remove(user.id, channel.id)
         await self.session.commit()
         return SubscriptionOut(subscribed=False, subscribers_count=await self.subs.count(channel.id))

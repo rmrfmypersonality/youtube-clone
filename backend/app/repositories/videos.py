@@ -60,6 +60,7 @@ class VideoRepository:
                 Video.status == VideoStatus.ready,
                 Video.visibility == Visibility.public,
                 Video.hidden_by_moderation.is_(False),
+                Channel.is_hidden.is_(False),
             )
             .order_by(Video.id.desc())
             .limit(limit + 1)

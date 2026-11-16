@@ -40,7 +40,7 @@ class SubscriptionRepository:
         stmt = (
             select(Channel)
             .join(Subscription, Subscription.channel_id == Channel.id)
-            .where(Subscription.subscriber_id == user_id)
+            .where(Subscription.subscriber_id == user_id, Channel.is_hidden.is_(False))
             .order_by(func.lower(Channel.name), Channel.id)
             .limit(limit)
         )
