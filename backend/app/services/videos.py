@@ -21,6 +21,7 @@ from app.repositories.users import UserRepository
 from app.repositories.video_shares import ShareRepository
 from app.repositories.videos import VideoRepository
 from app.repositories.audit import AuditRepository
+from app.repositories.categories import DEFAULT_SLUG, CategoryRepository
 from app.schemas.auth import ChannelBrief
 from app.repositories.subscriptions import SubscriptionRepository
 from app.schemas.videos import (
@@ -68,15 +69,28 @@ class VideoService:
         self.likes = LikeRepository(session)
         self.access = VideoAccess(session)
         self.audit = AuditRepository(session)
+        self.categories = CategoryRepository(session)
 
     # --- создание и загрузка ---
 
+    async def _category_id(self, category_id: int | None) -> int:
+        category = (
+            await self.categories.get_by_slug(DEFAULT_SLUG)
+            if category_id is None
+            else await self.categories.get(category_id)
+        )
+        if category is None:
+            raise AppError("Неизвестная категория")
+        return category.id
+
     async def create(self, user: User, data: VideoCreate) -> Video:
+        category_id = await self._category_id(data.category_id)
         video = Video(
             owner_id=user.id,
             title=data.title,
             description=data.description,
             visibility=data.visibility,
+            category_id=category_id,
         )
         self.videos.add(video)
         await self.session.commit()
@@ -211,12 +225,19 @@ class VideoService:
 
     async def update(self, user: User, video_id: int, data: VideoUpdate) -> Video:
         video = await self._editable(user, video_id)
+        new_category = None
+        if data.category_id is not None and data.category_id != video.category_id:
+            new_category = await self._category_id(data.category_id)  # проверка до любых правок
+
         changed: list[str] = []
         for field in ("title", "description", "visibility"):
             value = getattr(data, field)
             if value is not None and value != getattr(video, field):
                 setattr(video, field, value)
                 changed.append(field)
+        if new_category is not None:
+            video.category_id = new_category
+            changed.append("category_id")
         if changed and not video_policy.is_owner(user, video):  # правка админом чужого
             self.audit.log(
                 user, "video.update", "video", video.id,

@@ -11,8 +11,14 @@ router = APIRouter(prefix="/api", tags=["feed"])
 
 
 @router.get("/videos", response_model=VideoPage)
-async def home_feed(session: SessionDep, cursor: CursorQuery = None, limit: LimitQuery = 24):
-    return await FeedService(session).home(cursor=cursor, limit=limit)
+async def home_feed(
+    session: SessionDep,
+    category: Annotated[str | None, Query(pattern=r"^[a-z0-9_]{1,32}$")] = None,
+    cursor: CursorQuery = None,
+    limit: LimitQuery = 24,
+):
+    """category: slug категории из /api/categories; неизвестный slug даёт пустую ленту."""
+    return await FeedService(session).home(cursor=cursor, limit=limit, category=category)
 
 
 @router.get("/search", response_model=VideoPage)
