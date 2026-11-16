@@ -121,6 +121,7 @@ async function onLogout() {
               Мой канал
             </RouterLink>
             <RouterLink class="menu-item" to="/studio">Мои видео</RouterLink>
+            <RouterLink class="menu-item" to="/settings">Настройки</RouterLink>
             <RouterLink v-if="isModerator" class="menu-item" to="/moderation">Модерация</RouterLink>
             <RouterLink v-if="isAdmin" class="menu-item" to="/admin">Администрирование</RouterLink>
             <button class="menu-item" type="button" @click="onLogout">Выйти</button>

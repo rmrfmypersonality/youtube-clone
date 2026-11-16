@@ -1,8 +1,7 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute } from 'vue-router'
 import { api } from '../api/client'
-import ChannelEditForm from '../components/ChannelEditForm.vue'
 import InfiniteScroll from '../components/InfiniteScroll.vue'
 import PlaylistCard from '../components/PlaylistCard.vue'
 import SubscribeButton from '../components/SubscribeButton.vue'
@@ -12,8 +11,7 @@ import { useAuth } from '../composables/useAuth'
 import { usePagedList } from '../composables/usePagedList'
 
 const route = useRoute()
-const router = useRouter()
-const { init, setChannel } = useAuth()
+const { init } = useAuth()
 
 const handle = computed(() => String(route.params.handle))
 const tab = computed(() => (route.params.tab === 'playlists' ? 'playlists' : 'videos'))
@@ -21,7 +19,6 @@ const tab = computed(() => (route.params.tab === 'playlists' ? 'playlists' : 'vi
 const channel = ref(null)
 const loading = ref(true)
 const error = ref('')
-const editing = ref(false)
 let token = 0
 
 const {
@@ -44,7 +41,6 @@ async function load() {
   const t = ++token
   loading.value = true
   error.value = ''
-  editing.value = false
   channel.value = null
   resetVideos()
   playlists.value = []
@@ -88,15 +84,6 @@ function onSubscription(res) {
   channel.value.subscribers_count = res.subscribers_count
 }
 
-function onSaved(updated) {
-  editing.value = false
-  channel.value = updated
-  setChannel({ id: updated.id, handle: updated.handle, name: updated.name })
-  if (updated.handle !== handle.value) {
-    router.replace(`/@${updated.handle}${tab.value === 'playlists' ? '/playlists' : ''}`)
-  }
-}
-
 async function createPlaylist() {
   const title = newTitle.value.trim()
   if (!title || creating.value) return
@@ -129,18 +116,12 @@ async function createPlaylist() {
             @{{ channel.handle }} • {{ formatSubscribers(channel.subscribers_count) }} •
             {{ channel.videos_count }} видео
           </div>
-          <p v-if="channel.description && !editing" class="desc">{{ channel.description }}</p>
-
-          <ChannelEditForm
-            v-if="editing"
-            :channel="channel"
-            @saved="onSaved"
-            @cancel="editing = false"
-          />
-          <div v-else class="buttons">
-            <button v-if="channel.is_owner" type="button" class="btn" @click="editing = true">
-              Настроить канал
-            </button>
+          <p v-if="channel.description" class="desc">{{ channel.description }}</p>
+          <p v-if="channel.is_hidden" class="hidden-note">
+            Канал скрыт: его видите только вы. Видео остаются в разделе «Мои видео».
+            <RouterLink to="/settings">Настройки</RouterLink>
+          </p>
+          <div class="buttons">
             <RouterLink v-if="channel.is_owner" to="/studio" class="btn">Мои видео</RouterLink>
             <SubscribeButton
               v-else
@@ -286,6 +267,10 @@ h1 {
 }
 .empty {
   text-align: center;
+}
+.hidden-note {
+  margin: 12px 0 0;
+  color: var(--danger);
 }
 @media (max-width: 600px) {
   .channel-page {
