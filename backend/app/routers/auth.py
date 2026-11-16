@@ -77,7 +77,7 @@ async def logout(
 ) -> None:
     if refresh_token:
         await AuthService(session).logout(refresh_token)
-    _clear_auth_cookies(response)
+    clear_auth_cookies(response)
 
 
 @router.get("/me", response_model=UserOut)
