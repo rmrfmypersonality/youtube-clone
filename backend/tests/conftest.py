@@ -28,7 +28,7 @@ from sqlalchemy.ext.asyncio import create_async_engine  # noqa: E402
 
 from app.core.database import SessionLocal, engine  # noqa: E402
 from app.main import app  # noqa: E402
-from app.models import Base, Role, User, Video, VideoStatus, Visibility   # noqa: E402
+from app.models import Base, Category, Role, User, Video, VideoStatus, Visibility  # noqa: E402
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
 PASSWORD = "correct-horse-battery"
@@ -53,7 +53,9 @@ def pytest_configure(config):
 @pytest.fixture(autouse=True)
 async def clean_db():
     yield
-    tables = ", ".join(f'"{t.name}"' for t in Base.metadata.sorted_tables)
+    tables = ", ".join(
+        f'"{t.name}"' for t in Base.metadata.sorted_tables if t.name != "categories"
+    )  # categories наполняет миграция, стирать её нельзя
     async with engine.begin() as conn:
         await conn.execute(text(f"TRUNCATE {tables} RESTART IDENTITY CASCADE"))
     for child in Path(_media_root).iterdir():
@@ -130,14 +132,19 @@ async def make_video(db):
         visibility: Visibility = Visibility.public,
         status: VideoStatus = VideoStatus.ready,
         hidden: bool = False,
+        category: str = "other"
     ) -> Video:
         owner_id = (await db.execute(select(User.id).where(User.username == owner))).scalar_one()
+        category_id = (
+            await db.execute(select(Category.id).where(Category.slug == category))
+        ).scalar_one()
         video = Video(
             owner_id=owner_id,
             title=title,
             visibility=visibility,
             status=status,
             hidden_by_moderation=hidden,
+            category_id=category_id,
         )
         db.add(video)
         await db.flush()
