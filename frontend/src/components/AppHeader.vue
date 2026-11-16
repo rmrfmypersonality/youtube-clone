@@ -1,19 +1,27 @@
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import AppIcon from './AppIcon.vue'
+import AppLogo from './AppLogo.vue'
 import { useAuth } from '../composables/useAuth'
+import { useLayout } from '../composables/useLayout'
+import { useTheme } from '../composables/useTheme'
 
 const { state, logout, isModerator, isAdmin } = useAuth()
+const { toggleSidebar } = useLayout()
+const { theme, toggleTheme } = useTheme()
 const router = useRouter()
-const menuOpen = ref(false)
+const route = useRoute()
 
 const ROLE_LABELS = { moderator: 'Модератор', admin: 'Администратор' }
 
+const menuOpen = ref(false)
+const query = ref(String(route.query.q ?? ''))
+const mobileSearch = ref(false) // на телефоне поиск раскрывается поверх шапки
+const searchInput = ref(null)
+
 const initial = computed(() => state.user?.username?.[0]?.toUpperCase() ?? '')
 const roleLabel = computed(() => ROLE_LABELS[state.user?.role] ?? null)
-
-const route = useRoute()
-const query = ref(String(route.query.q ?? ''))
 
 watch(
   () => route.query.q,
@@ -21,10 +29,24 @@ watch(
     query.value = String(value ?? '')
   },
 )
+watch(
+  () => route.fullPath,
+  () => {
+    menuOpen.value = false
+  },
+)
 
 function onSearch() {
   const q = query.value.trim()
-  if (q) router.push({ name: 'search', query: { q } })
+  if (!q) return
+  mobileSearch.value = false
+  router.push({ name: 'search', query: { q } })
+}
+
+async function openMobileSearch() {
+  mobileSearch.value = true
+  await nextTick()
+  searchInput.value?.focus()
 }
 
 async function onLogout() {
@@ -35,42 +57,80 @@ async function onLogout() {
 </script>
 
 <template>
-  <header class="header">
-    <RouterLink to="/" class="logo">
-      <svg width="28" height="20" viewBox="0 0 28 20" aria-hidden="true">
-        <rect width="28" height="20" rx="6" fill="var(--accent)" />
-        <path d="M11 5.5v9l8-4.5z" fill="#fff" />
-      </svg>
-      <span>YouTube Clone</span>
-    </RouterLink>
+  <header class="header" :class="{ 'search-open': mobileSearch }">
+    <div class="left">
+      <button type="button" class="icon-btn" aria-label="Меню" @click="toggleSidebar">
+        <AppIcon name="menu" />
+      </button>
+      <AppLogo />
+    </div>
 
     <form class="search" role="search" @submit.prevent="onSearch">
-      <input v-model="query" type="search" maxlength="100" placeholder="Введите запрос" aria-label="Поиск" />
-      <button class="btn" aria-label="Найти">Найти</button>
+      <button type="button" class="icon-btn back" aria-label="Назад" @click="mobileSearch = false">
+        <AppIcon name="back" />
+      </button>
+      <div class="field-wrap">
+        <input
+          ref="searchInput"
+          v-model="query"
+          type="search"
+          maxlength="100"
+          placeholder="Введите запрос"
+          aria-label="Поиск"
+        />
+        <button class="submit" aria-label="Найти"><AppIcon name="search" /></button>
+      </div>
     </form>
 
     <div class="right">
+      <button
+        type="button"
+        class="icon-btn mobile-only"
+        aria-label="Поиск"
+        @click="openMobileSearch"
+      >
+        <AppIcon name="search" />
+      </button>
+      <button
+        type="button"
+        class="icon-btn"
+        :aria-label="theme === 'dark' ? 'Включить светлую тему' : 'Включить тёмную тему'"
+        @click="toggleTheme"
+      >
+        <AppIcon :name="theme === 'dark' ? 'sun' : 'moon'" />
+      </button>
+
       <template v-if="state.ready">
-        <RouterLink v-if="state.user" to="/upload" class="btn upload-btn">Загрузить</RouterLink>
+        <RouterLink v-if="state.user" to="/upload" class="pill create">
+          <AppIcon name="add" />
+          <span>Создать</span>
+        </RouterLink>
+
         <div v-if="state.user" class="user">
-          <button class="avatar" type="button" @click="menuOpen = !menuOpen">
+          <button class="avatar" type="button" aria-label="Аккаунт" @click="menuOpen = !menuOpen">
             {{ initial }}
           </button>
           <div v-if="menuOpen" class="backdrop" @click="menuOpen = false" />
           <div v-if="menuOpen" class="menu">
             <div class="menu-head">
               <div class="menu-name">{{ state.user.channel.name }}</div>
-              <div class="menu-handle">@{{ state.user.channel.handle }}</div>
-              <div v-if="roleLabel" class="menu-role">{{ roleLabel }}</div>
-              <RouterLink class="menu-item" :to="`/@${state.user.channel.handle}`" @click="menuOpen = false">Мой канал</RouterLink>
-              <RouterLink class="menu-item" to="/studio" @click="menuOpen = false">Мои видео</RouterLink>
-              <RouterLink v-if="isModerator" class="menu-item" to="/moderation" @click="menuOpen = false">Модерация</RouterLink>
-              <RouterLink v-if="isAdmin" class="menu-item" to="/admin" @click="menuOpen = false">Администрирование</RouterLink>
+              <div class="muted">@{{ state.user.channel.handle }}</div>
+              <div v-if="roleLabel" class="muted">{{ roleLabel }}</div>
             </div>
+            <RouterLink class="menu-item" :to="`/@${state.user.channel.handle}`">
+              Мой канал
+            </RouterLink>
+            <RouterLink class="menu-item" to="/studio">Мои видео</RouterLink>
+            <RouterLink v-if="isModerator" class="menu-item" to="/moderation">Модерация</RouterLink>
+            <RouterLink v-if="isAdmin" class="menu-item" to="/admin">Администрирование</RouterLink>
             <button class="menu-item" type="button" @click="onLogout">Выйти</button>
           </div>
         </div>
-        <RouterLink v-else to="/login" class="btn btn-primary">Войти</RouterLink>
+
+        <RouterLink v-else to="/login" class="pill signin">
+          <AppIcon name="account" />
+          <span>Войти</span>
+        </RouterLink>
       </template>
     </div>
   </header>
@@ -81,25 +141,81 @@ async function onLogout() {
   position: fixed;
   inset: 0 0 auto 0;
   z-index: 100;
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr minmax(0, 720px) 1fr;
   align-items: center;
-  justify-content: space-between;
   height: var(--header-height);
   padding: 0 16px;
   background: var(--bg);
 }
-.logo {
+.left {
+  grid-column: 1;
   display: flex;
   align-items: center;
-  gap: 6px;
-  color: var(--text);
-  font-size: 18px;
-  font-weight: 700;
-  letter-spacing: -0.5px;
+  gap: 8px;
+  justify-self: start;
+}
+.search {
+  grid-column: 2;
+  display: flex;
+  align-items: center;
+  min-width: 0;
 }
 .right {
+  grid-column: 3;
   display: flex;
   align-items: center;
+  gap: 8px;
+  justify-self: end;
+}
+.field-wrap {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+}
+.search input {
+  flex: 1;
+  min-width: 0;
+  height: 40px;
+  padding: 0 16px;
+  border: 1px solid var(--border);
+  border-radius: 20px 0 0 20px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 16px;
+}
+.search input:focus {
+  outline: none;
+  border-color: var(--link);
+}
+.submit {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-left: none;
+  border-radius: 0 20px 20px 0;
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+}
+.submit:hover {
+  background: var(--surface-hover);
+}
+.back,
+.mobile-only {
+  display: none;
+}
+.signin {
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--link);
+}
+.signin:hover {
+  background: var(--surface);
 }
 .user {
   position: relative;
@@ -125,7 +241,7 @@ async function onLogout() {
   right: 0;
   top: 44px;
   z-index: 2;
-  min-width: 220px;
+  min-width: 240px;
   padding: 8px 0;
   background: var(--surface);
   border-radius: var(--radius);
@@ -137,10 +253,6 @@ async function onLogout() {
 }
 .menu-name {
   font-weight: 500;
-}
-.menu-handle,
-.menu-role {
-  color: var(--text-secondary);
 }
 .menu-item {
   display: block;
@@ -156,29 +268,53 @@ async function onLogout() {
 .menu-item:hover {
   background: var(--surface-hover);
 }
-.upload-btn {
-  margin-right: 12px;
+
+@media (max-width: 1024px) {
+  .header {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+  .search {
+    margin: 0 16px;
+  }
 }
-.search {
-  display: flex;
-  flex: 1;
-  gap: 8px;
-  max-width: 600px;
-  margin: 0 16px;
-}
-.search input {
-  flex: 1;
-  min-width: 0;
-  padding: 0 16px;
-  height: 36px;
-  border: 1px solid var(--border);
-  border-radius: 18px;
-  background: var(--bg);
-  color: var(--text);
-  font: inherit;
-}
-.search input:focus {
-  outline: none;
-  border-color: var(--link);
+
+@media (max-width: 640px) {
+  .header {
+    padding: 0 8px;
+  }
+  .search {
+    display: none;
+  }
+  .mobile-only {
+    display: grid;
+  }
+  .create span {
+    display: none;
+  }
+  .create {
+    width: 36px;
+    padding: 0;
+    justify-content: center;
+  }
+  .signin span {
+    display: none;
+  }
+  .signin {
+    width: 36px;
+    padding: 0;
+    justify-content: center;
+  }
+  .header.search-open .left,
+  .header.search-open .right {
+    display: none;
+  }
+  .header.search-open .search {
+    display: flex;
+    grid-column: 1 / -1;
+    margin: 0;
+  }
+  .header.search-open .back {
+    display: grid;
+  }
 }
 </style>

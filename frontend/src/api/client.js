@@ -168,4 +168,8 @@ export const api = {
     updateUser: (id, payload) => request('PATCH', `/admin/users/${id}`, payload),
     audit: (cursor) => request('GET', `/admin/audit${qs({ cursor })}`),
   },
+  subscriptions: {
+    list: () => request('GET', '/subscriptions'),
+    feed: (cursor) => request('GET', `/subscriptions/feed${qs({ cursor })}`),
+  },
 }
