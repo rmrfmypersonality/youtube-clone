@@ -184,4 +184,9 @@ export const api = {
     remove: (videoId) => request('DELETE', `/history/${videoId}`),
     clear: () => request('DELETE', '/history'),
   },
+  notifications: {
+    count: () => request('GET', '/notifications/count'),
+    list: (cursor) => request('GET', `/notifications${qs({ cursor })}`),
+    seen: () => request('POST', '/notifications/seen'),
+  },
 }

@@ -30,6 +30,10 @@ class User(Base):
         server_default=Role.user.value,
     )
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default=true())
+    # Колокольчик: видео подписок, опубликованные позже этого момента, считаются новыми
+    notifications_seen_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )

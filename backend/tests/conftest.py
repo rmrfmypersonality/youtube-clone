@@ -29,6 +29,8 @@ from sqlalchemy.ext.asyncio import create_async_engine  # noqa: E402
 from app.core.database import SessionLocal, engine  # noqa: E402
 from app.main import app  # noqa: E402
 from app.models import Base, Category, Role, User, Video, VideoStatus, Visibility  # noqa: E402
+from app.core.time import utcnow  # noqa: E402
+
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
 PASSWORD = "correct-horse-battery"
@@ -152,6 +154,7 @@ async def make_video(db):
             base = f"videos/{video.id}"
             video.path_720, video.path_360 = f"{base}/720.mp4", f"{base}/360.mp4"
             video.thumbnail_path, video.duration_seconds = f"{base}/thumb.jpg", 10.0
+            video.published_at = utcnow()
         await db.commit()
         return video
 

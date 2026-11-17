@@ -46,6 +46,7 @@ async def test_worker_processes_video(make_client, sample_video, db):
     assert 1.5 < body["duration_seconds"] < 2.5
 
     video = await db.get(Video, video_id)
+    assert video.published_at is not None
     storage = get_storage()
     for key in (video.path_720, video.path_360, video.thumbnail_path):
         assert storage.local_path(key).stat().st_size > 0

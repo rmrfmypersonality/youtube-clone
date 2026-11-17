@@ -3,7 +3,7 @@ from fastapi.responses import JSONResponse
 
 from app.core.exceptions import AppError
 from app.routers import (
-    admin, auth, channels, comments, feed, moderation, playlists, reactions, reports, system, videos, subscriptions, account, categories, history,
+    admin, auth, channels, comments, feed, moderation, playlists, reactions, reports, system, videos, subscriptions, account, categories, history, notifications,
 )
 
 app = FastAPI(title="YouTube Clone")
@@ -29,3 +29,4 @@ app.include_router(subscriptions.router)
 app.include_router(account.router)
 app.include_router(categories.router)
 app.include_router(history.router)
+app.include_router(notifications.router)

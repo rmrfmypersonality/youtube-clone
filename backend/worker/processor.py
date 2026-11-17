@@ -58,6 +58,7 @@ async def _process(job: Job) -> None:
             video.path_720, video.path_360, video.thumbnail_path = key_720, key_360, key_thumb
             video.duration_seconds = info.duration
             video.status = VideoStatus.ready
+            video.published_at = utcnow()
         if db_job is not None:
             db_job.status = JobStatus.done
             db_job.error = None
