@@ -1,6 +1,8 @@
 from pathlib import Path
 
 import pytest
+import re
+
 from sqlalchemy import select, update
 
 from app.core.config import get_settings
@@ -147,3 +149,53 @@ async def test_get_video_idor(make_client, client):
     assert (await bob.get(url)).status_code == 404  # не 403: не выдаём факт существования
     assert (await client.get(url)).status_code == 404
     assert (await alice.get("/api/videos/99999")).status_code == 404
+
+
+DISGUISED = {
+    "html": b"<!DOCTYPE html><html><script>alert(1)</script></html>",
+    "svg": b'<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>',
+    "elf": b"\x7fELF" + b"\x00" * 64,
+    "exe": b"MZ" + b"\x90\x00" * 32,
+    "zip": b"PK\x03\x04" + b"\x00" * 64,
+    "gzip": b"\x1f\x8b\x08" + b"\x00" * 64,
+    "pdf": b"%PDF-1.7\n" + b"0" * 64,
+    "gif": b"GIF89a" + b"\x00" * 64,
+    "hls_playlist": b"#EXTM3U\n#EXT-X-VERSION:3\nfile:///etc/passwd\n",
+    "ffconcat": b"ffconcat version 1.0\nfile '/etc/passwd'\n",
+    "avif": b"\x00\x00\x00\x18ftypavif\x00\x00\x00\x00mif1avif" + b"\x00" * 64,
+}
+
+
+@pytest.mark.parametrize("content", DISGUISED.values(), ids=DISGUISED.keys())
+async def test_upload_rejects_disguised_files(make_client, db, content):
+    alice = await make_client("alice")
+    video = await create_video(alice)
+
+    r = await alice.put(
+        f"/api/videos/{video['id']}/file",
+        content=content,
+        headers={"Content-Type": "video/mp4"},  # заголовок клиента ни на что не влияет
+    )
+    assert r.status_code == 415
+    assert (await db.get(Video, video["id"])).status == VideoStatus.pending
+    assert stored_files() == []
+
+
+async def test_client_filename_is_ignored(make_client, db):
+    alice = await make_client("alice")
+    video = await create_video(alice)
+
+    r = await alice.put(
+        f"/api/videos/{video['id']}/file",
+        content=VALID,
+        headers={
+            **HEADERS,
+            "Content-Disposition": 'attachment; filename="../../evil.mp4"',
+            "X-File-Name": "../../evil.mp4",
+        },
+    )
+    assert r.status_code == 202
+    row = await db.get(Video, video["id"])
+    assert re.fullmatch(r"originals/[0-9a-f]{32}", row.original_path)
+    files = stored_files()
+    assert len(files) == 1 and files[0].parent.name == "originals"
