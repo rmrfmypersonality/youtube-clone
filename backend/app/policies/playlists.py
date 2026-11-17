@@ -7,7 +7,8 @@ def is_owner(user: User | None, playlist: Playlist) -> bool:
 
 
 def can_view_playlist(user: User | None, playlist: Playlist) -> bool:
-    return playlist.is_public or is_owner(user, playlist)
+    """public и unlisted открываются любому по ссылке, private только владельцу."""
+    return playlist.visibility != Visibility.private or is_owner(user, playlist)
 
 
 def can_edit_playlist(user: User | None, playlist: Playlist) -> bool:
