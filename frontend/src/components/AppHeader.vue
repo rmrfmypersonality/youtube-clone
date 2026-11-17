@@ -6,7 +6,10 @@ import AppLogo from './AppLogo.vue'
 import { useAuth } from '../composables/useAuth'
 import { useLayout } from '../composables/useLayout'
 import { useTheme } from '../composables/useTheme'
+import { useNotifications } from '../composables/useNotifications'
 
+const { state: notifications } = useNotifications()
+const badge = computed(() => (notifications.count > 99 ? '99+' : String(notifications.count)))
 const { state, logout, isModerator, isAdmin } = useAuth()
 const { toggleSidebar } = useLayout()
 const { theme, toggleTheme } = useTheme()
@@ -101,6 +104,15 @@ async function onLogout() {
       </button>
 
       <template v-if="state.ready">
+        <RouterLink
+          v-if="state.user"
+          to="/notifications"
+          class="icon-btn bell"
+          aria-label="Уведомления"
+        >
+          <AppIcon name="bell" />
+          <span v-if="notifications.count > 0" class="badge">{{ badge }}</span>
+        </RouterLink>
         <RouterLink v-if="state.user" to="/upload" class="pill create">
           <AppIcon name="add" />
           <span>Создать</span>
@@ -268,6 +280,25 @@ async function onLogout() {
 }
 .menu-item:hover {
   background: var(--surface-hover);
+}
+.bell {
+  position: relative;
+  color: var(--text);
+}
+.badge {
+  position: absolute;
+  top: 2px;
+  right: 0;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 18px;
+  text-align: center;
 }
 
 @media (max-width: 1024px) {

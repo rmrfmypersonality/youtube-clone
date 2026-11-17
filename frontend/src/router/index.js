@@ -14,6 +14,7 @@ import ModerationView from '../views/ModerationView.vue'
 import SubscriptionsView from '../views/SubscriptionsView.vue'
 import SettingsView from '../views/SettingsView.vue'
 import HistoryView from '../views/HistoryView.vue'
+import NotificationsView from '../views/NotificationsView.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -33,6 +34,7 @@ const router = createRouter({
     { path: '/settings', name: 'settings', component: SettingsView, meta: { requiresAuth: true } },
     { path: '/watch-later', name: 'watch-later', component: PlaylistView, meta: { requiresAuth: true },},
     { path: '/history', name: 'history', component: HistoryView, meta: { requiresAuth: true } },
+    { path: '/notifications', name: 'notifications', component: NotificationsView, meta: { requiresAuth: true },},
   ],
 })
 
