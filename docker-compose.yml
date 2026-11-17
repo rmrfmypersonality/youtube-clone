@@ -8,6 +8,7 @@ x-backend: &backend
     MEDIA_ROOT: /data/media
   volumes:
     - media:/data/media
+    - ./seed_assets:/seed_assets:ro
   depends_on:
     postgres:
       condition: service_healthy
