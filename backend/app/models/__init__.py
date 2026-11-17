@@ -12,6 +12,7 @@ from app.models.user import Role, User
 from app.models.video import Video, VideoStatus, Visibility
 from app.models.video_share import VideoShare
 from app.models.category import Category
+from app.models.watch_history import WatchHistory
 
 __all__ = [
     "AuditLog",
@@ -36,4 +37,5 @@ __all__ = [
     "Visibility",
     "Category",
     "PlaylistKind",
+    "WatchHistory",
 ]
