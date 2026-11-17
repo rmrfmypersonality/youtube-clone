@@ -1,4 +1,4 @@
-from app.models import Playlist, User, Video, Visibility
+from app.models import Playlist, User, Video, Visibility, PlaylistKind
 from app.policies.roles import is_admin
 
 
@@ -24,3 +24,7 @@ def can_add_video(user: User, video: Video) -> bool:
     if video.owner_id == user.id:
         return True
     return video.visibility == Visibility.public and not video.hidden_by_moderation
+
+def is_system(playlist: Playlist) -> bool:
+    """Системный плейлист («Смотреть позже»): нельзя менять и удалять никому."""
+    return playlist.kind != PlaylistKind.regular

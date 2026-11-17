@@ -1,7 +1,7 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import AppError, Conflict, NotFound
-from app.models import Playlist, User, VideoStatus
+from app.models import Playlist, PlaylistKind, User, VideoStatus
 from app.policies import playlists as policy
 from app.repositories.channels import ChannelRepository
 from app.repositories.playlists import PlaylistRepository
@@ -29,6 +29,7 @@ def _out(row, cls=PlaylistOut, **extra):
         title=p.title,
         description=p.description,
         is_public=p.is_public,
+        kind=p.kind,
         created_at=p.created_at,
         items_count=row.items_count,
         cover_video_id=row.cover_video_id,
@@ -93,6 +94,7 @@ class PlaylistService:
 
     async def update(self, user: User, playlist_id: int, data: PlaylistUpdate) -> PlaylistOut:
         playlist = await self._editable(user, playlist_id)
+        self._ensure_regular(playlist)
         if not policy.is_owner(user, playlist):  # действие админа над чужим
             self.audit.log(
                 user, "playlist.update", "playlist", playlist.id,
@@ -109,6 +111,7 @@ class PlaylistService:
 
     async def delete(self, user: User, playlist_id: int) -> None:
         playlist = await self._editable(user, playlist_id)
+        self._ensure_regular(playlist)
         if not policy.is_owner(user, playlist):  # действие админа над чужим
             self.audit.log(
                 user, "playlist.delete", "playlist", playlist.id,
@@ -143,6 +146,8 @@ class PlaylistService:
         is_owner = viewer is not None and channel is not None and viewer.id == channel.owner_id
         if channel is None or (channel.is_hidden and not is_owner):
             raise NotFound("Канал не найден")
+        if is_owner:
+            await self._ensure_watch_later(viewer)
         rows = await self.playlists.list_summaries(
             owner_id=channel.owner_id,
             viewer_id=viewer.id if viewer else None,
@@ -151,7 +156,22 @@ class PlaylistService:
         return [_out(r) for r in rows]
 
     async def list_mine(self, user: User, video_id: int | None) -> list[PlaylistMineOut]:
+        await self._ensure_watch_later(user)
         rows = await self.playlists.list_summaries(
             owner_id=user.id, viewer_id=user.id, only_public=False, contains_video_id=video_id
         )
         return [_out(r, PlaylistMineOut, contains=bool(r.contains)) for r in rows]
+
+    @staticmethod
+    def _ensure_regular(playlist: Playlist) -> None:
+        if policy.is_system(playlist):
+            raise AppError("Системный плейлист нельзя изменить или удалить")
+
+    async def _ensure_watch_later(self, user: User) -> Playlist:
+        playlist = await self.playlists.ensure_watch_later(user.id)
+        await self.session.commit()
+        return playlist
+
+    async def watch_later(self, user: User) -> PlaylistDetailOut:
+        playlist = await self._ensure_watch_later(user)
+        return await self.get(user, playlist.id)

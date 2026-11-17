@@ -4,7 +4,7 @@ from pydantic import BaseModel
 
 from app.schemas.auth import ChannelBrief
 from app.schemas.videos import Description, Title, VideoCardOut
-
+from app.models import PlaylistKind
 
 class PlaylistCreate(BaseModel):
     title: Title
@@ -23,6 +23,7 @@ class PlaylistOut(BaseModel):
     title: str
     description: str
     is_public: bool
+    kind: PlaylistKind
     created_at: datetime
     items_count: int
     cover_video_id: int | None

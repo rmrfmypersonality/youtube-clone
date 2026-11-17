@@ -26,6 +26,11 @@ async def my_playlists(
     """Мои плейлисты. С video_id: в поле contains видно, лежит ли в них это видео."""
     return await PlaylistService(session).list_mine(user, video_id)
 
+@router.get("/watch-later", response_model=PlaylistDetailOut)
+async def watch_later(user: CurrentUser, session: SessionDep):
+    """Мой плейлист «Смотреть позже» (создаётся при первом обращении)."""
+    return await PlaylistService(session).watch_later(user)
+
 
 @router.post("", response_model=PlaylistOut, status_code=201)
 async def create_playlist(data: PlaylistCreate, user: CurrentUser, session: SessionDep):

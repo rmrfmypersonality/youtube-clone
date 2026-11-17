@@ -1,9 +1,11 @@
-from sqlalchemy import and_, delete, false, func, or_, select
+from sqlalchemy import and_, case, delete, false, func, or_, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
-from app.models import Channel, Playlist, PlaylistItem, Video, VideoStatus, Visibility
+from app.models import Channel, Playlist, PlaylistItem, PlaylistKind, Video, VideoStatus, Visibility
+
+from app.models.playlist import WATCH_LATER_TITLE
 
 
 def _visible(viewer_id: int | None):
@@ -74,7 +76,12 @@ class PlaylistRepository:
         self.session.add(playlist)
 
     async def count_by_owner(self, owner_id: int) -> int:
-        stmt = select(func.count()).select_from(Playlist).where(Playlist.owner_id == owner_id)
+        """Лимит считает только обычные плейлисты, «Смотреть позже» в него не входит."""
+        stmt = (
+            select(func.count())
+            .select_from(Playlist)
+            .where(Playlist.owner_id == owner_id, Playlist.kind == PlaylistKind.regular)
+        )
         return (await self.session.execute(stmt)).scalar_one()
 
     async def count_items(self, playlist_id: int) -> int:
@@ -115,7 +122,10 @@ class PlaylistRepository:
         stmt = _summary_stmt(viewer_id, contains_video_id).where(Playlist.owner_id == owner_id)
         if only_public:
             stmt = stmt.where(Playlist.is_public.is_(True))
-        stmt = stmt.order_by(Playlist.id.desc()).limit(limit)
+        stmt = stmt.order_by(
+            case((Playlist.kind == PlaylistKind.watch_later, 0), else_=1),  # «Смотреть позже» первым
+            Playlist.id.desc(),
+        ).limit(limit)
         return (await self.session.execute(stmt)).all()
 
     async def list_items(
@@ -131,3 +141,30 @@ class PlaylistRepository:
             .limit(limit)
         )
         return [(r.Video, r.Channel) for r in (await self.session.execute(stmt)).all()]
+
+    async def _find_watch_later(self, owner_id: int) -> Playlist | None:
+        stmt = select(Playlist).where(
+            Playlist.owner_id == owner_id, Playlist.kind == PlaylistKind.watch_later
+        )
+        return (await self.session.execute(stmt)).scalar_one_or_none()
+
+    async def ensure_watch_later(self, owner_id: int) -> Playlist:
+        """Возвращает «Смотреть позже», создаёт при первом обращении. Коммитит вызывающий."""
+        existing = await self._find_watch_later(owner_id)
+        if existing is not None:
+            return existing
+        # DO NOTHING: параллельный запрос мог успеть раньше, уникальный индекс не даст создать второй
+        await self.session.execute(
+            insert(Playlist)
+            .values(
+                owner_id=owner_id,
+                title=WATCH_LATER_TITLE,
+                description="",
+                is_public=False,
+                kind=PlaylistKind.watch_later,
+            )
+            .on_conflict_do_nothing()
+        )
+        found = await self._find_watch_later(owner_id)
+        assert found is not None
+        return found
