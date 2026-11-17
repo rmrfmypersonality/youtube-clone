@@ -1,4 +1,5 @@
 <script setup>
+import { VISIBILITY_LABELS } from '../composables/visibility'
 defineProps({ playlist: { type: Object, required: true } })
 </script>
 
@@ -14,7 +15,9 @@ defineProps({ playlist: { type: Object, required: true } })
       <span class="count">{{ playlist.items_count }} видео</span>
     </div>
     <div class="title">{{ playlist.title }}</div>
-    <div v-if="!playlist.is_public" class="muted">Ограниченный доступ</div>
+    <div v-if="playlist.visibility !== 'public'" class="muted">
+      {{ VISIBILITY_LABELS[playlist.visibility] }}
+    </div>
   </RouterLink>
 </template>
 

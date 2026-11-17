@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { api } from '../api/client'
 import VideoCard from '../components/VideoCard.vue'
 import { useAuth } from '../composables/useAuth'
+import { VISIBILITY_LABELS } from '../composables/visibility'
 
 const route = useRoute()
 const router = useRouter()
@@ -18,7 +19,7 @@ let token = 0
 const editing = ref(false)
 const title = ref('')
 const description = ref('')
-const isPublic = ref(true)
+const visibility = ref('public')
 const busy = ref(false)
 const actionError = ref('')
 
@@ -47,7 +48,7 @@ watch(() => `${String(route.name)}:${route.params.id ?? ''}`, load, { immediate:
 function startEdit() {
   title.value = playlist.value.title
   description.value = playlist.value.description
-  isPublic.value = playlist.value.is_public
+  visibility.value = playlist.value.visibility
   actionError.value = ''
   editing.value = true
 }
@@ -59,7 +60,7 @@ async function save() {
     const updated = await api.playlists.update(playlist.value.id, {
       title: title.value.trim(),
       description: description.value,
-      is_public: isPublic.value,
+      visibility: visibility.value,
     })
     // updated не содержит items и is_owner, поэтому вливаем в текущий объект
     playlist.value = { ...playlist.value, ...updated }
@@ -112,9 +113,10 @@ async function removeItem(videoId) {
           </label>
           <label class="field">
             <span>Доступ</span>
-            <select v-model="isPublic">
-              <option :value="true">Открытый доступ</option>
-              <option :value="false">Ограниченный доступ</option>
+            <select v-model="visibility">
+              <option v-for="(label, value) in VISIBILITY_LABELS" :key="value" :value="value">
+                {{ label }}
+              </option>
             </select>
           </label>
           <div class="row">
@@ -128,7 +130,9 @@ async function removeItem(videoId) {
           <div class="muted">
             <RouterLink :to="`/@${playlist.channel.handle}`">{{ playlist.channel.name }}</RouterLink>
             • {{ playlist.items_count }} видео
-            <template v-if="!playlist.is_public"> • Ограниченный доступ</template>
+            <template v-if="playlist.visibility !== 'public'">
+              • {{ VISIBILITY_LABELS[playlist.visibility] }}
+            </template>
           </div>
           <p v-if="playlist.description" class="desc">{{ playlist.description }}</p>
           <div v-if="playlist.is_owner && playlist.kind === 'regular'" class="row">
