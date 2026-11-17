@@ -106,8 +106,12 @@ def test_comment_delete_policy():
 
 
 def test_playlist_policies():
-    public, private = Playlist(owner_id=1, is_public=True), Playlist(owner_id=1, is_public=False)
-    assert playlist_policy.can_view_playlist(None, public)
+    public = Playlist(owner_id=1, visibility=Visibility.public)
+    unlisted = Playlist(owner_id=1, visibility=Visibility.unlisted)
+    private = Playlist(owner_id=1, visibility=Visibility.private)
+    for playlist in (public, unlisted):
+        for viewer in (None, OWNER, STRANGER, MODERATOR, ADMIN):
+            assert playlist_policy.can_view_playlist(viewer, playlist)
     assert playlist_policy.can_view_playlist(OWNER, private)
     for viewer in (None, STRANGER, MODERATOR, ADMIN):
         assert not playlist_policy.can_view_playlist(viewer, private)
