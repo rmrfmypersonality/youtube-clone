@@ -13,6 +13,7 @@ import AdminView from '../views/AdminView.vue'
 import ModerationView from '../views/ModerationView.vue'
 import SubscriptionsView from '../views/SubscriptionsView.vue'
 import SettingsView from '../views/SettingsView.vue'
+import HistoryView from '../views/HistoryView.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -31,6 +32,7 @@ const router = createRouter({
     { path: '/subscriptions', name: 'subscriptions', component: SubscriptionsView, meta: { requiresAuth: true },},
     { path: '/settings', name: 'settings', component: SettingsView, meta: { requiresAuth: true } },
     { path: '/watch-later', name: 'watch-later', component: PlaylistView, meta: { requiresAuth: true },},
+    { path: '/history', name: 'history', component: HistoryView, meta: { requiresAuth: true } },
   ],
 })
 
