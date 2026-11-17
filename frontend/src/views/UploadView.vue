@@ -1,7 +1,8 @@
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useVideoUpload } from '../composables/useVideoUpload'
 import { formatSize } from '../composables/format'
+import { useCategories } from '../composables/useCategories'
 
 const MAX_MB = 500 // держать в синхроне с MAX_UPLOAD_MB на бэкенде
 const ACCEPT = '.mp4,.mov,.webm,.mkv,video/mp4,video/quicktime,video/webm,video/x-matroska'
@@ -14,6 +15,17 @@ const dragging = ref(false)
 const title = ref('')
 const description = ref('')
 const visibility = ref('public')
+const { categories, defaultId } = useCategories()
+const category = ref(null)
+
+// Когда справочник загрузился, выбираем «Другое»
+watch(
+  categories,
+  () => {
+    if (category.value === null) category.value = defaultId()
+  },
+  { immediate: true },
+)
 
 const showForm = computed(() => ['idle', 'error'].includes(upload.state.phase))
 const lockMeta = computed(() => !!upload.state.video) // запись уже создана, метаданные не меняем
@@ -55,6 +67,7 @@ function submit() {
     title: title.value.trim(),
     description: description.value,
     visibility: visibility.value,
+    category_id: category.value,
   })
 }
 
@@ -64,6 +77,7 @@ function again() {
   title.value = ''
   description.value = ''
   visibility.value = 'public'
+  category.value = defaultId()
 }
 </script>
 
@@ -109,6 +123,12 @@ function again() {
           <option value="public">Открытый доступ</option>
           <option value="unlisted">Доступ по ссылке</option>
           <option value="private">Ограниченный доступ</option>
+        </select>
+      </label>
+      <label class="field">
+        <span>Категория</span>
+        <select v-model="category" :disabled="lockMeta">
+          <option v-for="c in categories" :key="c.id" :value="c.id">{{ c.name }}</option>
         </select>
       </label>
 

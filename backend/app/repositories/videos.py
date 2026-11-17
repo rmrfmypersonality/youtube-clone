@@ -2,7 +2,7 @@ from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
-from app.models import Channel, Subscription, Video, VideoStatus, Visibility
+from app.models import Category, Channel, Subscription, Video, VideoStatus, Visibility
 from app.core.sql import escape_like
 
 class VideoRepository:
@@ -51,6 +51,7 @@ class VideoRepository:
             limit: int,
             owner_id: int | None = None,
             subscriber_id: int | None = None,
+            category_slug: str | None = None,
     ) -> list[tuple[Video, Channel]]:
         """Публичная лента, поиск и видео канала: только public + ready + не скрыто модерацией."""
         stmt = (
@@ -82,6 +83,10 @@ class VideoRepository:
                 .where(Subscription.subscriber_id == subscriber_id)
             )
             stmt = stmt.where(Video.owner_id.in_(owners))
+        if category_slug:
+            stmt = stmt.where(
+                Video.category_id.in_(select(Category.id).where(Category.slug == category_slug))
+            )
         rows = (await self.session.execute(stmt)).all()
         return [(r.Video, r.Channel) for r in rows]
 

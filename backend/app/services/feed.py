@@ -30,8 +30,12 @@ class FeedService:
     def __init__(self, session: AsyncSession) -> None:
         self.videos = VideoRepository(session)
 
-    async def home(self, *, cursor: int | None, limit: int) -> VideoPage:
-        rows = await self.videos.list_public(query=None, cursor=cursor, limit=limit)
+    async def home(
+            self, *, cursor: int | None, limit: int, category: str | None = None
+    ) -> VideoPage:
+        rows = await self.videos.list_public(
+            query=None, cursor=cursor, limit=limit, category_slug=category
+        )
         return video_page(rows, limit)
 
     async def search(self, q: str, *, cursor: int | None, limit: int) -> VideoPage:

@@ -1,6 +1,7 @@
 <script setup>
 import { ref, watch } from 'vue'
 import { api } from '../api/client'
+import { useCategories } from '../composables/useCategories'
 
 const props = defineProps({ video: { type: Object, required: true } })
 const emit = defineEmits(['saved', 'cancel'])
@@ -8,6 +9,8 @@ const emit = defineEmits(['saved', 'cancel'])
 const title = ref(props.video.title)
 const description = ref(props.video.description)
 const visibility = ref(props.video.visibility)
+const { categories } = useCategories()
+const category = ref(props.video.category_id)
 const busy = ref(false)
 const error = ref('')
 
@@ -21,6 +24,7 @@ async function submit() {
         title: title.value.trim(),
         description: description.value,
         visibility: visibility.value,
+        category_id: category.value,
       }),
     )
   } catch (e) {
@@ -98,6 +102,12 @@ async function removeShare(user) {
           <option value="public">Открытый доступ</option>
           <option value="unlisted">Доступ по ссылке</option>
           <option value="private">Ограниченный доступ</option>
+        </select>
+      </label>
+      <label class="field">
+        <span>Категория</span>
+        <select v-model="category">
+          <option v-for="c in categories" :key="c.id" :value="c.id">{{ c.name }}</option>
         </select>
       </label>
       <p v-if="error" class="error" role="alert">{{ error }}</p>

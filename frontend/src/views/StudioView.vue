@@ -5,6 +5,7 @@ import InfiniteScroll from '../components/InfiniteScroll.vue'
 import VideoEditForm from '../components/VideoEditForm.vue'
 import { formatDuration, formatRelative, formatViews } from '../composables/format'
 import { usePagedList } from '../composables/usePagedList'
+import { useCategories } from '../composables/useCategories'
 
 const STATUS = {
   pending: 'Файл не загружен (запись удалится через сутки)',
@@ -21,6 +22,7 @@ const VISIBILITY = {
 
 const { items, loading, done, error, loadMore } = usePagedList((cursor) => api.videos.mine(cursor))
 const editingId = ref(null)
+const { nameById } = useCategories()
 const actionError = ref('')
 
 function onSaved(updated) {
@@ -65,7 +67,8 @@ async function remove(video) {
         <div class="info">
           <div class="title">{{ video.title }}</div>
           <div class="muted">
-            {{ STATUS[video.status] }} • {{ VISIBILITY[video.visibility] }}
+            {{ STATUS[video.status] }} • {{ VISIBILITY[video.visibility] }} •
+            {{ nameById(video.category_id) }}
           </div>
           <div v-if="video.hidden_by_moderation" class="hidden">Скрыто модератором</div>
           <div class="muted">

@@ -6,18 +6,21 @@ from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 from app.models import VideoStatus, Visibility
 from app.schemas.auth import USERNAME_RE, ChannelBrief
 from app.schemas.common import NoNul
+from app.core.params import INT_MAX
 
 Title = Annotated[
     str, StringConstraints(strip_whitespace=True, min_length=1, max_length=100), NoNul
 ]
 Description = Annotated[str, Field(max_length=5000), NoNul]
 Quality = Literal["720", "360"]
+CategoryId = Annotated[int, Field(ge=1, le=INT_MAX)]
 
 
 class VideoCreate(BaseModel):
     title: Title
     description: Description = ""
     visibility: Visibility = Visibility.private
+    category_id: CategoryId | None = None  # None = «Другое»
 
 
 class VideoOut(BaseModel):
@@ -29,6 +32,7 @@ class VideoOut(BaseModel):
     description: str
     status: VideoStatus
     visibility: Visibility
+    category_id: int
     hidden_by_moderation: bool
     duration_seconds: float | None
     views_count: int
@@ -49,6 +53,7 @@ class VideoUpdate(BaseModel):
     title: Title | None = None
     description: Description | None = None
     visibility: Visibility | None = None
+    category_id: CategoryId | None = None
 
 
 class VideoManagePage(BaseModel):
