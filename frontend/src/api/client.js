@@ -150,6 +150,7 @@ export const api = {
     remove: (id) => request('DELETE', `/playlists/${id}`),
     addItem: (id, videoId) => request('PUT', `/playlists/${id}/items/${videoId}`),
     removeItem: (id, videoId) => request('DELETE', `/playlists/${id}/items/${videoId}`),
+    watchLater: () => request('GET', '/playlists/watch-later'),
   },
     reports: {
     video: (id, payload) => request('POST', `/videos/${id}/report`, payload),

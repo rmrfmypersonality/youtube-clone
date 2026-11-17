@@ -27,6 +27,7 @@ const mine = computed(() => {
     { to: `/@${handle}/playlists`, label: 'Плейлисты', icon: 'playlist' },
     { to: '/studio', label: 'Мои видео', icon: 'library' },
     { to: '/settings', label: 'Настройки', icon: 'settings', fullOnly: true },
+    { to: '/watch-later', label: 'Смотреть позже', icon: 'watchLater' },
   ]
 })
 
