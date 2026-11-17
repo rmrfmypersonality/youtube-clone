@@ -179,4 +179,9 @@ export const api = {
   categories: {
     list: () => request('GET', '/categories'),
   },
+  history: {
+    list: (cursor) => request('GET', `/history${qs({ cursor })}`),
+    remove: (videoId) => request('DELETE', `/history/${videoId}`),
+    clear: () => request('DELETE', '/history'),
+  },
 }

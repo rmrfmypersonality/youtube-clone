@@ -24,6 +24,7 @@ const mine = computed(() => {
   const handle = auth.user.channel.handle
   return [
     { to: `/@${handle}`, label: 'Мой канал', icon: 'account', fullOnly: true },
+    { to: '/history', label: 'История', icon: 'history' },
     { to: `/@${handle}/playlists`, label: 'Плейлисты', icon: 'playlist' },
     { to: '/studio', label: 'Мои видео', icon: 'library' },
     { to: '/settings', label: 'Настройки', icon: 'settings', fullOnly: true },
