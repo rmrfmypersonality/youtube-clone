@@ -144,7 +144,7 @@ async def test_private_playlist(make_client, client, set_role):
         assert (await denied.get(url)).status_code == 404
 
     own_list = (await alice.get("/api/channels/alice/playlists")).json()
-    assert [p["id"] for p in own_list] == [pl["id"]]
+    assert [p["id"] for p in own_list if p["kind"] == "regular"] == [pl["id"]]
     for viewer in (bob, client):
         assert (await viewer.get("/api/channels/alice/playlists")).json() == []
     assert (await client.get("/api/channels/nobody/playlists")).status_code == 404
@@ -185,7 +185,7 @@ async def test_my_playlists_with_contains(make_client, client, make_video):
 
     r = await alice.get("/api/playlists/mine", params={"video_id": video.id})
     assert r.status_code == 200  # "mine" не уходит в /{playlist_id}
-    flags = {p["id"]: p["contains"] for p in r.json()}
+    flags = {p["id"]: p["contains"] for p in r.json() if p["kind"] == "regular"}
     assert flags == {with_video["id"]: True, without["id"]: False}
 
     assert {p["contains"] for p in (await alice.get("/api/playlists/mine")).json()} == {False}

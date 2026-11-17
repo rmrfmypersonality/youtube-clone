@@ -9,7 +9,7 @@ const route = useRoute()
 const router = useRouter()
 const { init } = useAuth()
 
-const id = computed(() => Number(route.params.id))
+const isWatchLater = computed(() => route.name === 'watch-later')
 const playlist = ref(null)
 const loading = ref(true)
 const error = ref('')
@@ -30,7 +30,7 @@ async function load() {
   editing.value = false
   try {
     await init()
-    const data = await api.playlists.get(id.value)
+    const data = isWatchLater.value ? await api.playlists.watchLater() : await api.playlists.get(Number(route.params.id))
     if (t !== token) return
     playlist.value = data
     document.title = `${data.title} — YouTube Clone`
@@ -42,7 +42,7 @@ async function load() {
   }
 }
 
-watch(id, load, { immediate: true })
+watch(() => `${String(route.name)}:${route.params.id ?? ''}`, load, { immediate: true })
 
 function startEdit() {
   title.value = playlist.value.title
@@ -56,7 +56,7 @@ async function save() {
   busy.value = true
   actionError.value = ''
   try {
-    const updated = await api.playlists.update(id.value, {
+    const updated = await api.playlists.update(playlist.value.id, {
       title: title.value.trim(),
       description: description.value,
       is_public: isPublic.value,
@@ -75,7 +75,7 @@ async function removePlaylist() {
   if (!confirm('Удалить плейлист? Видео в нём останутся.')) return
   actionError.value = ''
   try {
-    await api.playlists.remove(id.value)
+    await api.playlists.remove(playlist.value.id)
     router.push(`/@${playlist.value.channel.handle}/playlists`)
   } catch (e) {
     actionError.value = e.message
@@ -85,7 +85,7 @@ async function removePlaylist() {
 async function removeItem(videoId) {
   actionError.value = ''
   try {
-    await api.playlists.removeItem(id.value, videoId)
+    await api.playlists.removeItem(playlist.value.id, videoId)
     playlist.value.items = playlist.value.items.filter((v) => v.id !== videoId)
     playlist.value.items_count = playlist.value.items.length
   } catch (e) {
@@ -131,7 +131,7 @@ async function removeItem(videoId) {
             <template v-if="!playlist.is_public"> • Ограниченный доступ</template>
           </div>
           <p v-if="playlist.description" class="desc">{{ playlist.description }}</p>
-          <div v-if="playlist.is_owner" class="row">
+          <div v-if="playlist.is_owner && playlist.kind === 'regular'" class="row">
             <button type="button" class="btn" @click="startEdit">Изменить</button>
             <button type="button" class="btn" @click="removePlaylist">Удалить</button>
           </div>

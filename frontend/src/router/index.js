@@ -30,6 +30,7 @@ const router = createRouter({
     { path: '/admin', name: 'admin', component: AdminView, meta: { requiresAuth: true, role: 'admin' },},
     { path: '/subscriptions', name: 'subscriptions', component: SubscriptionsView, meta: { requiresAuth: true },},
     { path: '/settings', name: 'settings', component: SettingsView, meta: { requiresAuth: true } },
+    { path: '/watch-later', name: 'watch-later', component: PlaylistView, meta: { requiresAuth: true },},
   ],
 })
 
