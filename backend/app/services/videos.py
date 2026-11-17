@@ -24,6 +24,7 @@ from app.repositories.audit import AuditRepository
 from app.repositories.categories import DEFAULT_SLUG, CategoryRepository
 from app.schemas.auth import ChannelBrief
 from app.repositories.subscriptions import SubscriptionRepository
+from app.repositories.history import HistoryRepository
 from app.schemas.videos import (
     Quality,
     VideoCreate,
@@ -70,6 +71,7 @@ class VideoService:
         self.access = VideoAccess(session)
         self.audit = AuditRepository(session)
         self.categories = CategoryRepository(session)
+        self.history = HistoryRepository(session)
 
     # --- создание и загрузка ---
 
@@ -175,6 +177,8 @@ class VideoService:
         if video.status != VideoStatus.ready:
             raise Conflict("Видео ещё не готово")
         count = await self.videos.increment_views(video.id)
+        if user is not None:  # гости в историю не пишутся
+            await self.history.record(user.id, video.id)
         await self.session.commit()
         return count or 0
 
