@@ -4,7 +4,7 @@ from app.models.channel import Channel
 from app.models.comment import Comment
 from app.models.job import Job, JobStatus
 from app.models.like import Like
-from app.models.playlist import Playlist, PlaylistItem
+from app.models.playlist import Playlist, PlaylistItem, PlaylistKind
 from app.models.refresh_token import RefreshToken
 from app.models.report import Report, ReportReason, ReportStatus
 from app.models.subscription import Subscription
@@ -35,4 +35,5 @@ __all__ = [
     "VideoStatus",
     "Visibility",
     "Category",
+    "PlaylistKind",
 ]
