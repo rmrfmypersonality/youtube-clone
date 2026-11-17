@@ -5,8 +5,12 @@ from app.core.exceptions import AppError
 from app.routers import (
     admin, auth, channels, comments, feed, moderation, playlists, reactions, reports, system, videos, subscriptions, account, categories, history, notifications,
 )
+from app.core.config import get_settings
+from app.core.origin import OriginCheckMiddleware
 
 app = FastAPI(title="YouTube Clone")
+
+app.add_middleware(OriginCheckMiddleware, allowed_origins=get_settings().allowed_origins_set)
 
 
 @app.exception_handler(AppError)
