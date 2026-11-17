@@ -112,7 +112,7 @@ export const api = {
     logout: () => request('POST', '/auth/logout'),
   },
   videos: {
-    list: (cursor) => request('GET', `/videos${qs({ cursor })}`),
+    list: (cursor, category) => request('GET', `/videos${qs({ cursor, category })}`),
     mine: (cursor) => request('GET', `/videos/mine${qs({ cursor })}`),
     create: (payload) => request('POST', '/videos', payload),
     get: (id) => request('GET', `/videos/${id}`),
@@ -174,5 +174,8 @@ export const api = {
   },
   account: {
     remove: (password) => request('POST', '/account/delete', { password }),
+  },
+  categories: {
+    list: () => request('GET', '/categories'),
   },
 }

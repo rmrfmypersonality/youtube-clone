@@ -1,21 +1,33 @@
 <script setup>
-import { useRouter } from 'vue-router'
+import { computed } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { useCategories } from '../composables/useCategories'
 
-// Категорий в БД нет: чипсы это быстрый поиск по слову
-const TOPICS = ['Музыка', 'Игры', 'Новости', 'Кино', 'Спорт', 'Обучение', 'Наука', 'Путешествия']
-
+const route = useRoute()
 const router = useRouter()
+const { categories } = useCategories()
 
-function open(topic) {
-  router.push({ name: 'search', query: { q: topic } })
+const active = computed(() => String(route.query.category ?? ''))
+
+function select(slug) {
+  router.push({ name: 'home', query: slug ? { category: slug } : {} })
 }
 </script>
 
 <template>
   <div class="chips" role="toolbar" aria-label="Категории">
-    <button type="button" class="pill sm active">Все</button>
-    <button v-for="t in TOPICS" :key="t" type="button" class="pill sm" @click="open(t)">
-      {{ t }}
+    <button type="button" class="pill sm" :class="{ active: !active }" @click="select('')">
+      Все
+    </button>
+    <button
+      v-for="c in categories"
+      :key="c.id"
+      type="button"
+      class="pill sm"
+      :class="{ active: active === c.slug }"
+      @click="select(c.slug)"
+    >
+      {{ c.name }}
     </button>
   </div>
 </template>
