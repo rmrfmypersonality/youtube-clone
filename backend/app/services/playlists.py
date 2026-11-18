@@ -28,7 +28,7 @@ def _out(row, cls=PlaylistOut, **extra):
         id=p.id,
         title=p.title,
         description=p.description,
-        is_public=p.is_public,
+        visibility=p.visibility,
         kind=p.kind,
         created_at=p.created_at,
         items_count=row.items_count,
@@ -74,7 +74,7 @@ class PlaylistService:
             owner_id=user.id,
             title=data.title,
             description=data.description,
-            is_public=data.is_public,
+            visibility=data.visibility,
         )
         self.playlists.add(playlist)
         await self.session.commit()
@@ -104,8 +104,8 @@ class PlaylistService:
             playlist.title = data.title
         if data.description is not None:
             playlist.description = data.description
-        if data.is_public is not None:
-            playlist.is_public = data.is_public
+        if data.visibility is not None:
+            playlist.visibility = data.visibility
         await self.session.commit()
         return await self._out_for(playlist.id, user)
 

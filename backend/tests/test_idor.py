@@ -89,7 +89,7 @@ async def test_idor_matrix(make_client, client, make_video, db):
     private = await make_video("alice", title="Original title", visibility=Visibility.private)
     public = await make_video("alice")
     comment = (await alice.post(f"/api/videos/{private.id}/comments", json={"text": "alice's comment"})).json()
-    playlist = (await alice.post("/api/playlists", json={"title": "Secret mix", "is_public": False})).json()
+    playlist = (await alice.post("/api/playlists", json={"title": "Secret mix", "visibility": "private"})).json()
     assert (await alice.put(f"/api/playlists/{playlist['id']}/items/{private.id}")).status_code == 204
     report_id = (await carol.post(f"/api/videos/{public.id}/report", json={"reason": "spam"})).json()["id"]
     assert (await hank.patch("/api/channels/me", json={"is_hidden": True})).status_code == 200

@@ -4,25 +4,25 @@ from pydantic import BaseModel
 
 from app.schemas.auth import ChannelBrief
 from app.schemas.videos import Description, Title, VideoCardOut
-from app.models import PlaylistKind
+from app.models import PlaylistKind, Visibility
 
 class PlaylistCreate(BaseModel):
     title: Title
     description: Description = ""
-    is_public: bool = True
+    visibility: Visibility = Visibility.public
 
 
 class PlaylistUpdate(BaseModel):
     title: Title | None = None
     description: Description | None = None
-    is_public: bool | None = None
+    visibility: Visibility | None = None
 
 
 class PlaylistOut(BaseModel):
     id: int
     title: str
     description: str
-    is_public: bool
+    visibility: Visibility
     kind: PlaylistKind
     created_at: datetime
     items_count: int

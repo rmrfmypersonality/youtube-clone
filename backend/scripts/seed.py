@@ -125,10 +125,11 @@ SUBSCRIPTIONS = [  # подписчик, канал (по username владел�
     ("moderator", "alice"),
 ]
 SHARES = [(2, "bob")]  # приватное видео 2 открыто для bob
-PLAYLISTS = [  # владелец, название, публичный, индексы видео
-    ("alice", "Любимая музыка", True, [1, 4]),
-    ("bob", "Наука и путешествия", True, [3, 4, 6]),
-    ("carol", "Для себя", False, [7, 8]),
+PLAYLISTS = [  # владелец, название, доступ, индексы видео
+    ("alice", "Любимая музыка", V.public, [1, 4]),
+    ("bob", "Наука и путешествия", V.public, [3, 4, 6]),
+    ("bob", "Только по ссылке", V.unlisted, [0, 3]),
+    ("carol", "Для себя", V.private, [7, 8]),
 ]
 WATCH_LATER = [("bob", [0, 1, 7]), ("alice", [3])]
 HISTORY = {"bob": [3, 0, 1], "alice": [7], "carol": [0]}  # от старых просмотров к новым
@@ -329,7 +330,7 @@ async def ensure_playlists(
     session: AsyncSession, users: dict[str, User], videos: dict[int, Video]
 ) -> None:
     repo = PlaylistRepository(session)
-    for owner, title, is_public, indexes in PLAYLISTS:
+    for owner, title, visibility, indexes in PLAYLISTS:
         user = users[owner]
         found = await session.execute(
             select(Playlist).where(
@@ -340,7 +341,7 @@ async def ensure_playlists(
         )
         playlist = found.scalar_one_or_none()
         if playlist is None:
-            playlist = Playlist(owner_id=user.id, title=title, is_public=is_public)
+            playlist = Playlist(owner_id=user.id, title=title, visibility=visibility)
             session.add(playlist)
             await session.flush()
         for index in indexes:

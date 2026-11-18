@@ -19,7 +19,7 @@ async def user_id(db, username) -> int:
 async def test_created_lazily_and_private(make_client, client):
     alice = await make_client("alice")
     body = await watch_later(alice)
-    assert (body["kind"], body["title"], body["is_public"]) == ("watch_later", "Смотреть позже", False)
+    assert (body["kind"], body["title"], body["visibility"]) == ("watch_later", "Смотреть позже", "private")
     assert (body["items"], body["items_count"], body["is_owner"]) == ([], 0, True)
     assert (await client.get("/api/playlists/watch-later")).status_code == 401
 
@@ -70,7 +70,7 @@ async def test_add_and_remove_items(make_client, make_video):
 
 
 @pytest.mark.parametrize(
-    "payload", [{"title": "Renamed"}, {"is_public": True}, {"description": "d"}]
+    "payload", [{"title": "Renamed"}, {"visibility": "public"}, {"description": "d"}]
 )
 async def test_cannot_be_modified_or_deleted(make_client, set_role, payload):
     alice, root = await make_client("alice"), await make_client("root")
@@ -81,7 +81,7 @@ async def test_cannot_be_modified_or_deleted(make_client, set_role, payload):
         assert (await who.patch(url, json=payload)).status_code == 400
         assert (await who.delete(url)).status_code == 400
     after = await watch_later(alice)
-    assert (after["title"], after["is_public"]) == ("Смотреть позже", False)
+    assert (after["title"], after["visibility"]) == ("Смотреть позже", "private")
 
 
 async def test_invisible_to_others(make_client, client, set_role):
@@ -106,10 +106,10 @@ async def test_not_counted_in_playlist_limit(make_client, monkeypatch):
 async def test_db_allows_one_watch_later_per_user(make_client, db):
     await make_client("alice")
     alice_id = await user_id(db, "alice")
-    db.add(Playlist(owner_id=alice_id, title="a", is_public=False, kind=PlaylistKind.watch_later))
+    db.add(Playlist(owner_id=alice_id, title="a", visibility=Visibility.private, kind=PlaylistKind.watch_later))
     await db.commit()
 
-    db.add(Playlist(owner_id=alice_id, title="b", is_public=False, kind=PlaylistKind.watch_later))
+    db.add(Playlist(owner_id=alice_id, title="b", visibility=Visibility.private, kind=PlaylistKind.watch_later))
     with pytest.raises(IntegrityError):
         await db.commit()
     await db.rollback()
@@ -121,7 +121,7 @@ async def test_db_forbids_public_watch_later(make_client, db):
         Playlist(
             owner_id=await user_id(db, "alice"),
             title="a",
-            is_public=True,
+            visibility=Visibility.public,
             kind=PlaylistKind.watch_later,
         )
     )

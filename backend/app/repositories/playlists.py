@@ -121,7 +121,7 @@ class PlaylistRepository:
     ):
         stmt = _summary_stmt(viewer_id, contains_video_id).where(Playlist.owner_id == owner_id)
         if only_public:
-            stmt = stmt.where(Playlist.is_public.is_(True))
+            stmt = stmt.where(Playlist.visibility == Visibility.public)
         stmt = stmt.order_by(
             case((Playlist.kind == PlaylistKind.watch_later, 0), else_=1),  # «Смотреть позже» первым
             Playlist.id.desc(),
@@ -160,7 +160,7 @@ class PlaylistRepository:
                 owner_id=owner_id,
                 title=WATCH_LATER_TITLE,
                 description="",
-                is_public=False,
+                visibility=Visibility.private,
                 kind=PlaylistKind.watch_later,
             )
             .on_conflict_do_nothing()

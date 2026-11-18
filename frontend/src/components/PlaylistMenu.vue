@@ -77,7 +77,7 @@ async function create() {
       <label v-for="pl in lists" :key="pl.id" class="item">
         <input type="checkbox" :checked="pl.contains" @change="toggle(pl)" />
         <span>{{ pl.title }}</span>
-        <span v-if="!pl.is_public" class="muted">🔒</span>
+        <span v-if="pl.visibility === 'private'" class="muted">🔒</span>
       </label>
       <p v-if="!loading && !lists.length" class="muted">Плейлистов пока нет</p>
       <p v-if="error" class="error" role="alert">{{ error }}</p>

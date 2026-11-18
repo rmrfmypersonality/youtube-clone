@@ -22,7 +22,7 @@ def item_ids(response):
 async def test_create_playlist(make_client, client):
     alice = await make_client("alice")
     body = await create_playlist(alice, description="d")
-    assert body["is_public"] is True
+    assert body["visibility"] == "public"
     assert body["items_count"] == 0
     assert body["cover_video_id"] is None
     assert body["channel"]["handle"] == "alice"
@@ -30,12 +30,17 @@ async def test_create_playlist(make_client, client):
 
 
 @pytest.mark.parametrize(
-    "payload", [{"title": ""}, {"title": "x" * 101}, {"title": "ok", "description": "x" * 5001}]
+    "payload",
+    [
+        {"title": ""},
+        {"title": "x" * 101},
+        {"title": "ok", "description": "x" * 5001},
+        {"title": "ok", "visibility": "secret"},
+    ],
 )
 async def test_create_validation(make_client, payload):
     alice = await make_client("alice")
     assert (await alice.post("/api/playlists", json=payload)).status_code == 422
-
 
 async def test_items_add_remove_and_order(make_client, client, make_video):
     alice, _ = await make_client("alice"), await make_client("bob")
@@ -136,7 +141,7 @@ async def test_item_changes_are_owner_only(make_client, client, make_video, set_
 async def test_private_playlist(make_client, client, set_role):
     alice, bob, root = await make_client("alice"), await make_client("bob"), await make_client("root")
     await set_role("root", Role.admin)
-    pl = await create_playlist(alice, title="secret", is_public=False)
+    pl = await create_playlist(alice, title="secret", visibility="private")
     url = f"/api/playlists/{pl['id']}"
 
     assert (await alice.get(url)).status_code == 200
@@ -160,9 +165,9 @@ async def test_update_and_delete_playlist(make_client, client, make_video, set_r
     await add(alice, pl["id"], video.id)
     url = f"/api/playlists/{pl['id']}"
 
-    r = await alice.patch(url, json={"title": "Renamed", "is_public": False})
+    r = await alice.patch(url, json={"title": "Renamed", "visibility": "private"})
     assert r.status_code == 200
-    assert (r.json()["title"], r.json()["is_public"]) == ("Renamed", False)
+    assert (r.json()["title"], r.json()["visibility"]) == ("Renamed", "private")
 
     for denied in (bob, mod):
         assert (await denied.patch(url, json={"title": "x"})).status_code == 404
@@ -211,3 +216,37 @@ async def test_huge_ids_are_422(make_client):
     assert (await alice.get("/api/playlists/99999999999")).status_code == 422
     assert (await alice.put("/api/playlists/1/items/99999999999")).status_code == 422
     assert (await alice.get("/api/playlists/mine", params={"video_id": 0})).status_code == 422
+
+
+async def test_unlisted_playlist_opens_by_link_but_is_not_listed(make_client, client, make_video):
+    alice, bob = await make_client("alice"), await make_client("bob")
+    video = await make_video("alice")
+    pl = await create_playlist(alice, "Link only", visibility="unlisted")
+    await add(alice, pl["id"], video.id)
+    url = f"/api/playlists/{pl['id']}"
+
+    for viewer in (bob, client):
+        r = await viewer.get(url)
+        assert (r.status_code, item_ids(r)) == (200, [video.id])
+        assert r.json()["visibility"] == "unlisted"
+        assert (await viewer.get("/api/channels/alice/playlists")).json() == []  # в списке канала нет
+
+    own = (await alice.get("/api/channels/alice/playlists")).json()
+    assert pl["id"] in [p["id"] for p in own]  # владелец видит
+
+    # по ссылке открывается сам плейлист, но не закрытые видео внутри него
+    secret = await make_video("alice", visibility=Visibility.private)
+    await add(alice, pl["id"], secret.id)
+    assert item_ids(await bob.get(url)) == [video.id]
+
+
+async def test_change_visibility_between_all_modes(make_client, client):
+    alice = await make_client("alice")
+    pl = await create_playlist(alice, "Mix")
+    url = f"/api/playlists/{pl['id']}"
+
+    for mode, anonymous_status in (("unlisted", 200), ("private", 404), ("public", 200)):
+        r = await alice.patch(url, json={"visibility": mode})
+        assert (r.status_code, r.json()["visibility"]) == (200, mode)
+        assert (await client.get(url)).status_code == anonymous_status
+    assert (await alice.patch(url, json={"visibility": "secret"})).status_code == 422

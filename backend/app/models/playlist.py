@@ -2,7 +2,6 @@ import enum
 from datetime import datetime
 
 from sqlalchemy import (
-    Boolean,
     CheckConstraint,
     DateTime,
     Enum,
@@ -12,11 +11,11 @@ from sqlalchemy import (
     UniqueConstraint,
     func,
     text,
-    true,
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base
+from app.models.video import Visibility
 
 WATCH_LATER_TITLE = "Смотреть позже"
 
@@ -30,7 +29,12 @@ class Playlist(Base):
     __tablename__ = "playlists"
     __table_args__ = (
         CheckConstraint("kind IN ('regular', 'watch_later')", name="kind_valid"),
-        CheckConstraint("kind <> 'watch_later' OR is_public IS FALSE", name="watch_later_private"),
+        CheckConstraint(
+            "visibility IN ('public', 'unlisted', 'private')", name="visibility_valid"
+        ),
+        CheckConstraint(
+            "kind <> 'watch_later' OR visibility = 'private'", name="watch_later_private"
+        ),
         Index(
             "uq_playlists_watch_later",
             "owner_id",
@@ -45,7 +49,11 @@ class Playlist(Base):
     )
     title: Mapped[str] = mapped_column(String(100))
     description: Mapped[str] = mapped_column(String(5000), default="", server_default="")
-    is_public: Mapped[bool] = mapped_column(Boolean, default=True, server_default=true())
+    visibility: Mapped[Visibility] = mapped_column(
+        Enum(Visibility, native_enum=False, length=16),
+        default=Visibility.private,
+        server_default=Visibility.private.value,
+    )
     kind: Mapped[PlaylistKind] = mapped_column(
         Enum(PlaylistKind, native_enum=False, length=16),
         default=PlaylistKind.regular,
