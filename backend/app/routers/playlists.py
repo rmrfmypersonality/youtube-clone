@@ -36,6 +36,12 @@ async def watch_later(user: CurrentUser, session: SessionDep):
     return await PlaylistService(session).watch_later(user)
 
 
+@router.put("/watch-later/items/{video_id}", status_code=204)
+async def add_to_watch_later(video_id: IdPath, user: CurrentUser, session: SessionDep) -> None:
+    """Быстро добавить видео в «Смотреть позже» (плейлист создаётся при первом обращении)."""
+    await PlaylistService(session).add_to_watch_later(user, video_id)
+
+
 @router.get("/liked", response_model=PlaylistOut)
 async def liked_playlist(user: CurrentUser, session: SessionDep):
     """Мой плейлист «Понравившиеся» (создаётся при первом обращении)."""

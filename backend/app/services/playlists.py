@@ -220,3 +220,7 @@ class PlaylistService:
     async def watch_later(self, user: User) -> PlaylistDetailOut:
         playlist = await self._ensure_watch_later(user)
         return await self.get(user, playlist.id)
+
+    async def add_to_watch_later(self, user: User, video_id: int) -> None:
+        playlist = await self._ensure_watch_later(user)
+        await self.add_item(user, playlist.id, video_id)  # те же проверки, что у обычных плейлистов
