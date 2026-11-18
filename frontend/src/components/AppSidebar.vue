@@ -29,6 +29,7 @@ const mine = computed(() => {
     { to: '/studio', label: 'Мои видео', icon: 'library' },
     { to: '/settings', label: 'Настройки', icon: 'settings', fullOnly: true },
     { to: '/watch-later', label: 'Смотреть позже', icon: 'watchLater' },
+    { to: '/liked', label: 'Понравившиеся', icon: 'like' },
   ]
 })
 
