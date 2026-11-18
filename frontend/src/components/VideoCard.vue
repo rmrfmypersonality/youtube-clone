@@ -1,11 +1,73 @@
 <script setup>
+import { computed, onBeforeUnmount, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { api } from '../api/client'
+import { copyText } from '../composables/clipboard'
 import { formatDuration, formatRelative, formatViews } from '../composables/format'
+import { useAuth } from '../composables/useAuth'
+import AppIcon from './AppIcon.vue'
+import ReportDialog from './ReportDialog.vue'
+import SavePlaylistDialog from './SavePlaylistDialog.vue'
 
-defineProps({
+const props = defineProps({
   video: { type: Object, required: true },
   horizontal: Boolean, // результаты поиска: превью слева, текст справа
   compact: Boolean, // правая колонка на странице просмотра
 })
+
+const route = useRoute()
+const router = useRouter()
+const { state: auth } = useAuth()
+
+const menuOpen = ref(false)
+const saveOpen = ref(false)
+const reportOpen = ref(false)
+const note = ref('')
+let noteTimer = null
+
+// Сервер всё равно проверит: это только чтобы не показывать пункт, который заведомо откажет
+const isOwn = computed(() => auth.user?.channel.id === props.video.channel.id)
+
+onBeforeUnmount(() => clearTimeout(noteTimer))
+
+function say(text) {
+  note.value = text
+  clearTimeout(noteTimer)
+  noteTimer = setTimeout(() => (note.value = ''), 2500)
+}
+
+function requireLogin() {
+  if (auth.user) return true
+  router.push({ name: 'login', query: { next: route.fullPath } })
+  return false
+}
+
+async function watchLater() {
+  menuOpen.value = false
+  if (!requireLogin()) return
+  try {
+    await api.playlists.addToWatchLater(props.video.id)
+    say('Добавлено в «Смотреть позже»')
+  } catch (e) {
+    say(e.message)
+  }
+}
+
+function addToPlaylist() {
+  menuOpen.value = false
+  if (requireLogin()) saveOpen.value = true
+}
+
+async function share() {
+  menuOpen.value = false
+  const ok = await copyText(`${location.origin}/watch/${props.video.id}`)
+  say(ok ? 'Ссылка скопирована' : 'Не удалось скопировать ссылку')
+}
+
+function report() {
+  menuOpen.value = false
+  if (requireLogin()) reportOpen.value = true
+}
 </script>
 
 <template>
@@ -30,8 +92,48 @@ defineProps({
         <div class="muted">
           {{ formatViews(video.views_count) }} • {{ formatRelative(video.created_at) }}
         </div>
+        <div v-if="note" class="note" role="status">{{ note }}</div>
+      </div>
+
+      <div class="menu-wrap">
+        <button
+          type="button"
+          class="icon-btn burger"
+          aria-label="Действия"
+          aria-haspopup="true"
+          @click="menuOpen = !menuOpen"
+        >
+          <AppIcon name="more" />
+        </button>
+        <div v-if="menuOpen" class="backdrop" @click="menuOpen = false" />
+        <div v-if="menuOpen" class="menu" role="menu">
+          <button type="button" role="menuitem" class="item" @click="watchLater">
+            <AppIcon name="watchLater" :size="22" />
+            <span>Смотреть позже</span>
+          </button>
+          <button type="button" role="menuitem" class="item" @click="addToPlaylist">
+            <AppIcon name="playlistAdd" :size="22" />
+            <span>Добавить в плейлист</span>
+          </button>
+          <button type="button" role="menuitem" class="item" @click="share">
+            <AppIcon name="share" :size="22" />
+            <span>Поделиться</span>
+          </button>
+          <button v-if="!isOwn" type="button" role="menuitem" class="item" @click="report">
+            <AppIcon name="flag" :size="22" />
+            <span>Пожаловаться</span>
+          </button>
+        </div>
       </div>
     </div>
+
+    <SavePlaylistDialog v-if="saveOpen" :video-id="video.id" @close="saveOpen = false" />
+    <ReportDialog
+      v-if="reportOpen"
+      kind="video"
+      :target-id="video.id"
+      @close="reportOpen = false"
+    />
   </article>
 </template>
 
@@ -84,6 +186,7 @@ defineProps({
   font-weight: 500;
 }
 .text {
+  flex: 1;
   min-width: 0;
 }
 .title {
@@ -105,6 +208,53 @@ defineProps({
 }
 .channel:hover {
   color: var(--text);
+}
+.note {
+  margin-top: 4px;
+  color: var(--link);
+}
+
+.menu-wrap {
+  position: relative;
+  flex: none;
+  align-self: flex-end;
+}
+.burger {
+  width: 32px;
+  height: 32px;
+  margin-right: -8px;
+}
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+}
+.menu {
+  position: absolute;
+  right: 0;
+  bottom: 36px;
+  z-index: 11;
+  min-width: 240px;
+  padding: 8px 0;
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: 0 4px 32px rgba(0, 0, 0, 0.4);
+}
+.item {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  width: 100%;
+  padding: 10px 16px;
+  border: none;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.item:hover {
+  background: var(--surface-hover);
 }
 
 .horizontal,

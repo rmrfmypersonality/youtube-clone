@@ -155,6 +155,7 @@ export const api = {
     liked: () => request('GET', '/playlists/liked'),
     likedVideos: (cursor) => request('GET', `/playlists/liked/videos${qs({ cursor })}`),
     random: (id) => request('GET', `/playlists/${id}/random`),
+    addToWatchLater: (videoId) => request('PUT', `/playlists/watch-later/items/${videoId}`),
   },
   reports: {
     video: (id, payload) => request('POST', `/videos/${id}/report`, payload),
