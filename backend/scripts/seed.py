@@ -37,7 +37,9 @@ from app.models import (
     VideoStatus,
     Visibility,
     WatchHistory,
+    CommentLike,
 )
+from app.repositories.comment_likes import CommentLikeRepository
 from app.repositories.playlists import PlaylistRepository
 from app.repositories.video_shares import ShareRepository
 from app.storage import get_storage
@@ -113,6 +115,14 @@ COMMENTS = [
     (4, "bob", "Про север будет отдельное видео.", "Какие места понравились больше всего?"),
     (7, "alice", "Момент на второй минуте просто огонь.", None),
     (9, "bob", "Хороший итог недели.", None),
+]
+
+# (индекс видео, автор, текст корневого комментария) -> {пользователь: 1 | -1}
+COMMENT_LIKES = [
+    ((0, "bob", "Отличное начало, подписался!"), {"alice": 1, "carol": 1, "dave": 1}),
+    ((1, "dave", "Идеально под работу."), {"alice": 1, "bob": 1}),
+    ((4, "carol", "Какие места понравились больше всего?"), {"alice": 1}),
+    ((3, "dave", SPAM_TEXT), {"alice": -1, "bob": -1}),
 ]
 
 SUBSCRIPTIONS = [  # подписчик, канал (по username владельца)
@@ -326,6 +336,33 @@ async def ensure_comments(
     log("  + комментарии")
 
 
+async def ensure_comment_likes(
+    session: AsyncSession, users: dict[str, User], videos: dict[int, Video]
+) -> None:
+    repo = CommentLikeRepository(session)
+    for (index, author, text), votes in COMMENT_LIKES:
+        found = await session.execute(
+            select(Comment.id).where(
+                Comment.video_id == videos[index].id,
+                Comment.user_id == users[author].id,
+                Comment.parent_id.is_(None),
+                Comment.text == text,
+            )
+        )
+        comment_id = found.scalars().first()
+        if comment_id is None:
+            raise RuntimeError(f"Не найден комментарий для лайков: {text!r}")
+        for username, value in votes.items():
+            await session.execute(
+                insert(CommentLike)
+                .values(user_id=users[username].id, comment_id=comment_id, value=value)
+                .on_conflict_do_nothing()
+            )
+        await repo.recount(comment_id)
+    await session.commit()
+    log("  + лайки комментариев")
+
+
 async def ensure_playlists(
     session: AsyncSession, users: dict[str, User], videos: dict[int, Video]
 ) -> None:
@@ -351,6 +388,9 @@ async def ensure_playlists(
         playlist = await repo.ensure_watch_later(users[owner].id)
         for index in indexes:
             await repo.add_item(playlist.id, videos[index].id)
+
+    for username in {u for votes in LIKES.values() for u in votes}:
+        await repo.ensure_liked(users[username].id)  # «Понравившиеся» строятся из лайков
 
     for username, indexes in HISTORY.items():
         for index in indexes:
@@ -428,6 +468,7 @@ async def run(assets_dir: Path) -> None:
         log("Взаимодействие")
         await ensure_social(session, users, videos)
         await ensure_comments(session, users, videos)
+        await ensure_comment_likes(session, users, videos)
         await ensure_playlists(session, users, videos)
         await ensure_reports(session, users, videos)
 

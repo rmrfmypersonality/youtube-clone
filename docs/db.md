@@ -19,6 +19,8 @@ erDiagram
     videos ||--o{ comments : "под видео"
     users ||--o{ comments : "пишет"
     comments ||--o{ comments : "ответ"
+    comments ||--o{ comment_likes : "реакции"
+    users ||--o{ comment_likes : "ставит"
     users ||--o{ subscriptions : "подписчик"
     channels ||--o{ subscriptions : "на канал"
     users ||--o{ playlists : "владеет"
@@ -98,9 +100,10 @@ erDiagram
         int user_id PK
         datetime created_at
     }
-    likes {
+        likes {
         int user_id PK
         int video_id PK
+        int id UK
         smallint value
         datetime created_at
     }
@@ -111,6 +114,13 @@ erDiagram
         int parent_id FK
         string text
         bool hidden_by_moderation
+        int likes_count
+        datetime created_at
+    }
+    comment_likes {
+        int user_id PK
+        int comment_id PK
+        smallint value
         datetime created_at
     }
     subscriptions {
@@ -123,7 +133,7 @@ erDiagram
         int owner_id FK
         string title
         string description
-        bool is_public
+        string visibility
         string kind
         datetime created_at
     }
@@ -170,9 +180,11 @@ erDiagram
 | `channels` | один канал на пользователя (`owner_id` уникален); handle уникален без учёта регистра |
 | `videos` | CHECK на `status` и `visibility`; FK на `categories` без каскада |
 | `jobs` | CHECK на `status` |
-| `likes` | CHECK `value IN (1, -1)`; ключ `(user_id, video_id)` |
+| `likes` | CHECK `value IN (1, -1)`; ключ `(user_id, video_id); id` (identity) задаёт порядок «последний лайк первым», при смене реакции строка пересоздаётся |
+| `comments` | `likes_count` пересчитывается подзапросом `COUNT` при каждой реакции; индекс `(video_id, likes_count, id)` для сортировки по популярности|
+| `comment_likes`       | CHECK `value IN (1, -1)`; ключ `(user_id, comment_id)`            |
 | `reports` | CHECK `num_nonnulls(video_id, comment_id) = 1` (цель ровно одна); частичные уникальные индексы: одна открытая жалоба пользователя на одну цель |
-| `playlists` | CHECK `kind <> 'watch_later' OR is_public IS FALSE`; частичный уникальный индекс: один «Смотреть позже» на пользователя |
+| `playlists` | CHECK на `visibility` и `kind` (`regular`, `watch_later`, `liked`); CHECK `kind = 'regular' OR visibility = 'private'`; частичные уникальные индексы: один «Смотреть позже» и один «Понравившиеся» на пользователя |
 | `playlist_items`, `watch_history` | уникальны пары `(playlist_id, video_id)` и `(user_id, video_id)` |
 | `audit_log` | `target_id` без FK: запись остаётся после удаления цели, снимок данных лежит в `details` |
 
@@ -194,3 +206,10 @@ erDiagram
 
 Воркер берёт задачу так: `SELECT ... WHERE status = 'queued' ORDER BY id LIMIT 1 FOR UPDATE SKIP LOCKED`,
 сразу переводит её в `running` и коммитит; ffmpeg работает вне транзакции.
+
+## Системные плейлисты
+
+`watch_later` хранится как обычные строки `playlist_items`. `liked` это представление над `likes`
+(только `value = 1`), своих элементов у него нет, меняется только лайками. Оба приватные,
+создаются при первом обращении (и миграцией для уже существующих пользователей), не меняются
+и не удаляются, не входят в лимит 100 плейлистов. Пустые скрываются на вкладке канала.
