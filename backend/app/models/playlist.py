@@ -18,28 +18,34 @@ from app.models.base import Base
 from app.models.video import Visibility
 
 WATCH_LATER_TITLE = "Смотреть позже"
+LIKED_TITLE = "Понравившиеся"
 
 
 class PlaylistKind(str, enum.Enum):
     regular = "regular"
     watch_later = "watch_later"  # системный: один на пользователя, всегда приватный
+    liked = "liked"  # системный: представление над лайками, всегда приватный
 
 
 class Playlist(Base):
     __tablename__ = "playlists"
     __table_args__ = (
-        CheckConstraint("kind IN ('regular', 'watch_later')", name="kind_valid"),
+        CheckConstraint("kind IN ('regular', 'watch_later', 'liked')", name="kind_valid"),
         CheckConstraint(
             "visibility IN ('public', 'unlisted', 'private')", name="visibility_valid"
         ),
-        CheckConstraint(
-            "kind <> 'watch_later' OR visibility = 'private'", name="watch_later_private"
-        ),
+        CheckConstraint("kind = 'regular' OR visibility = 'private'", name="system_private"),
         Index(
             "uq_playlists_watch_later",
             "owner_id",
             unique=True,
             postgresql_where=text("kind = 'watch_later'"),
+        ),
+        Index(
+            "uq_playlists_liked",
+            "owner_id",
+            unique=True,
+            postgresql_where=text("kind = 'liked'"),
         ),
     )
 
