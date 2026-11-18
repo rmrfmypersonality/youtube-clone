@@ -133,6 +133,7 @@ export const api = {
     replies: (id, cursor) => request('GET', `/comments/${id}/replies${qs({ cursor })}`),
     remove: (id) => request('DELETE', `/comments/${id}`),
     count: (videoId) => request('GET', `/videos/${videoId}/comments/count`),
+    react: (id, value) => request('PUT', `/comments/${id}/reaction`, { value }),
   },
   channels: {
     get: (handle) => request('GET', `/channels/${handle}`),

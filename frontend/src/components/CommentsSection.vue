@@ -13,14 +13,18 @@ const props = defineProps({ videoId: { type: Number, required: true } })
 
 // Пункты меню «Упорядочить» (value уходит в API как sort)
 const SORT_OPTIONS = [
-  { value: 'new', label: 'Новые', hint: 'Показать последние комментарии' },
-  { value: 'old', label: 'Старые', hint: 'Показать самые первые комментарии' },
+  { value: 'popular', label: 'Сначала популярные', hint: 'Показать избранные комментарии' },
+  {
+    value: 'new',
+    label: 'Новые',
+    hint: 'Показать последние комментарии, включая потенциальный спам',
+  },
 ]
 
 const route = useRoute()
 const { state: auth } = useAuth()
 
-const sort = ref('new')
+const sort = ref('popular')
 const menuOpen = ref(false)
 const text = ref('')
 const posting = ref(false)
@@ -62,8 +66,7 @@ async function submit() {
     text.value = ''
     // Новый комментарий самый свежий: в «новых» он первый, в «старых» последний,
     // но попадает в список только если мы уже дошли до конца (иначе подгрузится сам)
-    if (sort.value === 'new') items.value.unshift(created)
-    else if (done.value) items.value.push(created)
+    items.value.unshift(created)
     loadCount()
   } catch (e) {
     postError.value = e.message
