@@ -5,12 +5,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models import Channel, Video, VideoShare, VideoStatus, Visibility, WatchHistory
 
 
-def _visible(viewer_id: int):
-    """Что из истории пользователь может открыть прямо сейчас (канал уже в JOIN запроса)."""
+def visible_to(viewer_id: int, channel=Channel):
+    """Что пользователь может открыть прямо сейчас. channel: сущность канала, уже в JOIN запроса
+    (в подзапросах передают aliased(Channel))."""
     shared = select(VideoShare.video_id).where(VideoShare.user_id == viewer_id)
     listed = and_(
         Video.hidden_by_moderation.is_(False),
-        Channel.is_hidden.is_(False),
+        channel.is_hidden.is_(False),
         or_(Video.visibility != Visibility.private, Video.id.in_(shared)),
     )
     return and_(Video.status == VideoStatus.ready, or_(Video.owner_id == viewer_id, listed))
@@ -41,7 +42,7 @@ class HistoryRepository:
             select(WatchHistory, Video, Channel)
             .join(Video, Video.id == WatchHistory.video_id)
             .join(Channel, Channel.owner_id == Video.owner_id)
-            .where(WatchHistory.user_id == user_id, _visible(user_id))
+            .where(WatchHistory.user_id == user_id, visible_to(user_id))
             .order_by(WatchHistory.id.desc())
             .limit(limit + 1)
         )

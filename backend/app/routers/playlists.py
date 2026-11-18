@@ -3,14 +3,18 @@ from typing import Annotated
 from fastapi import APIRouter, Query
 
 from app.core.deps import CurrentUser, OptionalUser, SessionDep
-from app.core.params import INT_MAX, IdPath
+from app.core.params import INT_MAX, CursorQuery, IdPath, LimitQuery
+
 from app.schemas.playlists import (
     PlaylistCreate,
     PlaylistDetailOut,
     PlaylistMineOut,
     PlaylistOut,
     PlaylistUpdate,
+    RandomVideoOut,
 )
+from app.schemas.videos import VideoPage
+
 from app.services.playlists import PlaylistService
 
 router = APIRouter(prefix="/api/playlists", tags=["playlists"])
@@ -32,6 +36,20 @@ async def watch_later(user: CurrentUser, session: SessionDep):
     return await PlaylistService(session).watch_later(user)
 
 
+@router.get("/liked", response_model=PlaylistOut)
+async def liked_playlist(user: CurrentUser, session: SessionDep):
+    """Мой плейлист «Понравившиеся» (создаётся при первом обращении)."""
+    return await PlaylistService(session).liked(user)
+
+
+@router.get("/liked/videos", response_model=VideoPage)
+async def liked_videos(
+    user: CurrentUser, session: SessionDep, cursor: CursorQuery = None, limit: LimitQuery = 24
+):
+    """Видео, которые я лайкнул: последние первыми. Закрытые от меня видео не показываются."""
+    return await PlaylistService(session).liked_videos(user, cursor=cursor, limit=limit)
+
+
 @router.post("", response_model=PlaylistOut, status_code=201)
 async def create_playlist(data: PlaylistCreate, user: CurrentUser, session: SessionDep):
     return await PlaylistService(session).create(user, data)
@@ -40,6 +58,12 @@ async def create_playlist(data: PlaylistCreate, user: CurrentUser, session: Sess
 @router.get("/{playlist_id}", response_model=PlaylistDetailOut)
 async def get_playlist(playlist_id: IdPath, user: OptionalUser, session: SessionDep):
     return await PlaylistService(session).get(user, playlist_id)
+
+
+@router.get("/{playlist_id}/random", response_model=RandomVideoOut)
+async def random_video(playlist_id: IdPath, user: OptionalUser, session: SessionDep):
+    """Случайное доступное видео плейлиста (video_id = null, если таких нет)."""
+    return await PlaylistService(session).random(user, playlist_id)
 
 
 @router.patch("/{playlist_id}", response_model=PlaylistOut)
