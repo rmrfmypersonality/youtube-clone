@@ -38,6 +38,7 @@ CASES = [
     ("PATCH", "/api/playlists/{playlist_id}", J(title="hacked"), 404, 401),
     ("DELETE", "/api/playlists/{playlist_id}", {}, 404, 401),
     ("PUT", "/api/playlists/{playlist_id}/items/{video_id}", {}, 404, 401),
+    ("PUT", "/api/playlists/watch-later/items/{video_id}", {}, 404, 401),
     ("DELETE", "/api/playlists/{playlist_id}/items/{video_id}", {}, 404, 401),
     ("GET", "/api/channels/{handle}", {}, 404, 404),
     ("GET", "/api/channels/{handle}/videos", {}, 404, 404),
