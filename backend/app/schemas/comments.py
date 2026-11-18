@@ -31,11 +31,13 @@ class CommentOut(BaseModel):
     author: CommentAuthor
     reply_count: int
     hidden_by_moderation: bool = False
+    likes_count: int = 0
+    my_reaction: int = 0  # 1, -1 или 0
 
 
 class CommentPage(BaseModel):
     items: list[CommentOut]
-    next_cursor: int | None
+    next_cursor: str | None  # для popular "лайки_id", иначе id
 
 
 class CommentCount(BaseModel):

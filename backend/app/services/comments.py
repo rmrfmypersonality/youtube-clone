@@ -10,11 +10,15 @@ from app.repositories.audit import AuditRepository
 from app.repositories.comments import CommentRepository
 from app.schemas.comments import CommentAuthor, CommentCreate, CommentOut, CommentPage, CommentCount
 from app.services.video_access import VideoAccess
+from app.repositories.comment_likes import CommentLikeRepository
+from app.schemas.reactions import ReactionOut
 
 COMMENT_NOT_FOUND = "Комментарий не найден"
 
 
-def _out(comment: Comment, channel: Channel, reply_count: int = 0) -> CommentOut:
+def _out(
+    comment: Comment, channel: Channel, reply_count: int = 0, my_reaction: int = 0
+) -> CommentOut:
     return CommentOut(
         id=comment.id,
         video_id=comment.video_id,
@@ -24,15 +28,21 @@ def _out(comment: Comment, channel: Channel, reply_count: int = 0) -> CommentOut
         author=CommentAuthor(id=channel.owner_id, handle=channel.handle, name=channel.name),
         reply_count=reply_count,
         hidden_by_moderation=comment.hidden_by_moderation,
+        likes_count=comment.likes_count,
+        my_reaction=my_reaction,
     )
 
 
-def _page(rows: list[tuple[Comment, Channel, int]], limit: int) -> CommentPage:
+def _page(rows: list[tuple[Comment, Channel, int, int]], limit: int, *, popular: bool = False) -> CommentPage:
     has_more = len(rows) > limit  # репозиторий берёт limit + 1, лишняя строка = есть следующая страница
     rows = rows[:limit]
+    next_cursor = None
+    if has_more:
+        last = rows[-1][0]
+        next_cursor = f"{last.likes_count}_{last.id}" if popular else str(last.id)
     return CommentPage(
-        items=[_out(c, ch, n) for c, ch, n in rows],
-        next_cursor=rows[-1][0].id if has_more else None,
+        items=[_out(c, ch, n, mine) for c, ch, n, mine in rows],
+        next_cursor=next_cursor,
     )
 
 
@@ -46,21 +56,22 @@ class CommentService:
         self.access = VideoAccess(session)
         self.comments = CommentRepository(session)
         self.audit = AuditRepository(session)
+        self.reactions = CommentLikeRepository(session)
 
     async def list_for_video(
-        self,
-        user: User | None,
-        video_id: int,
-        *,
-        sort: Literal["new", "old"],
-        cursor: int | None,
-        limit: int,
+            self,
+            user: User | None,
+            video_id: int,
+            *,
+            sort: Literal["popular", "new"],
+            cursor: tuple[int | None, int] | None,
+            limit: int,
     ) -> CommentPage:
         await self.access.visible(user, video_id)
         rows = await self.comments.list_top(
-            video_id, cursor=cursor, limit=limit, newest_first=sort == "new", **_viewer(user)
+            video_id, cursor=cursor, limit=limit, sort=sort, **_viewer(user)
         )
-        return _page(rows, limit)
+        return _page(rows, limit, popular=sort == "popular")
 
     async def list_replies(
         self, user: User | None, comment_id: int, *, cursor: int | None, limit: int
@@ -122,3 +133,17 @@ class CommentService:
         await self.access.visible(user, video_id)
         n = await self.comments.count_for_video(video_id, **_viewer(user))
         return CommentCount(count=n)
+
+    async def react(self, user: User, comment_id: int, value: int) -> ReactionOut:
+        comment = await self.comments.get(comment_id)
+        # Права как на просмотр: скрытый от тебя комментарий и закрытое видео дают 404
+        if comment is None or not comment_policy.can_view_comment(user, comment):
+            raise NotFound(COMMENT_NOT_FOUND)
+        await self.access.visible(user, comment.video_id)
+        if value == 0:
+            await self.reactions.remove(user.id, comment.id)
+        else:
+            await self.reactions.set(user.id, comment.id, value)
+        likes_count = await self.reactions.recount(comment.id)
+        await self.session.commit()
+        return ReactionOut(likes_count=likes_count, my_reaction=value)

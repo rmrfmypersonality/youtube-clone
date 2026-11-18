@@ -3,9 +3,10 @@ from typing import Literal
 from fastapi import APIRouter
 
 from app.core.deps import CurrentUser, OptionalUser, SessionDep
-from app.core.params import CursorQuery, IdPath, LimitQuery
+from app.core.params import CommentCursorQuery, CursorQuery, IdPath, LimitQuery, parse_comment_cursor
 from app.schemas.comments import CommentCreate, CommentOut, CommentPage, CommentCount
 from app.services.comments import CommentService
+from app.schemas.reactions import ReactionIn, ReactionOut
 
 router = APIRouter(prefix="/api", tags=["comments"])
 
@@ -15,13 +16,22 @@ async def list_comments(
     video_id: IdPath,
     user: OptionalUser,
     session: SessionDep,
-    sort: Literal["new", "old"] = "new",
-    cursor: CursorQuery = None,
+    sort: Literal["popular", "new"] = "new",
+    cursor: CommentCursorQuery = None,
     limit: LimitQuery = 20,
 ):
+    """sort=popular: лайки по убыванию; курсор вида «лайки_id». sort=new: курсор это id."""
     return await CommentService(session).list_for_video(
-        user, video_id, sort=sort, cursor=cursor, limit=limit
+        user, video_id, sort=sort, cursor=parse_comment_cursor(sort, cursor), limit=limit
     )
+
+
+@router.put("/comments/{comment_id}/reaction", response_model=ReactionOut)
+async def react_to_comment(
+    comment_id: IdPath, data: ReactionIn, user: CurrentUser, session: SessionDep
+):
+    """value: 1 лайк, -1 дизлайк, 0 снять реакцию."""
+    return await CommentService(session).react(user, comment_id, data.value)
 
 
 @router.get("/videos/{video_id}/comments/count", response_model=CommentCount)

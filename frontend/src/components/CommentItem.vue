@@ -5,6 +5,8 @@ import { formatRelative } from '../composables/format'
 import { useAuth } from '../composables/useAuth'
 import { usePagedList } from '../composables/usePagedList'
 import ReportDialog from './ReportDialog.vue'
+import { useRoute, useRouter } from 'vue-router'
+import AppIcon from './AppIcon.vue'
 
 const props = defineProps({
   comment: { type: Object, required: true },
@@ -14,6 +16,32 @@ const props = defineProps({
 const emit = defineEmits(['deleted', 'changed'])
 
 const { state: auth, isModerator } = useAuth()
+const route = useRoute()
+const router = useRouter()
+
+const likes = ref(props.comment.likes_count)
+const mine = ref(props.comment.my_reaction)
+const reacting = ref(false)
+
+async function react(value) {
+  if (!auth.user) {
+    router.push({ name: 'login', query: { next: route.fullPath } })
+    return
+  }
+  if (reacting.value) return
+  reacting.value = true
+  actionError.value = ''
+  try {
+    const next = mine.value === value ? 0 : value // повторный клик снимает реакцию
+    const res = await api.comments.react(props.comment.id, next)
+    likes.value = res.likes_count
+    mine.value = res.my_reaction
+  } catch (e) {
+    actionError.value = e.message
+  } finally {
+    reacting.value = false
+  }
+}
 
 // Сервер всё равно проверит: это только чтобы не показывать лишних кнопок
 const canDelete = computed(
@@ -120,6 +148,31 @@ async function sendReply() {
       <p v-if="hidden" class="hidden-note">Скрыт модератором</p>
 
       <div class="row">
+        <div class="react">
+          <button
+            type="button"
+            class="react-btn"
+            :class="{ active: mine === 1 }"
+            :aria-pressed="mine === 1"
+            aria-label="Нравится"
+            :disabled="reacting"
+            @click="react(1)"
+          >
+            <AppIcon name="like" :size="18" />
+            <span v-if="likes > 0">{{ likes }}</span>
+          </button>
+          <button
+            type="button"
+            class="react-btn"
+            :class="{ active: mine === -1 }"
+            :aria-pressed="mine === -1"
+            aria-label="Не нравится"
+            :disabled="reacting"
+            @click="react(-1)"
+          >
+            <AppIcon name="dislike" :size="18" />
+          </button>
+        </div>
         <button v-if="!reply && auth.user" type="button" class="link" @click="replying = !replying">
           Ответить
         </button>
@@ -249,5 +302,34 @@ async function sendReply() {
 .hidden-note {
   margin: 0 0 6px;
   color: var(--danger);
+}
+.react {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+.react-btn {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 8px;
+  border: none;
+  border-radius: 16px;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.react-btn:hover {
+  background: var(--surface);
+}
+.react-btn.active {
+  color: var(--link);
+}
+.react-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
 }
 </style>

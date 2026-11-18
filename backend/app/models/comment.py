@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, String, false, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Integer, String, false, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base
@@ -8,6 +8,10 @@ from app.models.base import Base
 
 class Comment(Base):
     __tablename__ = "comments"
+    __table_args__ = (
+        # Сортировка «Сначала популярные» внутри видео
+        Index("ix_comments_video_popular", "video_id", "likes_count", "id"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     video_id: Mapped[int] = mapped_column(
@@ -24,6 +28,8 @@ class Comment(Base):
     hidden_by_moderation: Mapped[bool] = mapped_column(
         Boolean, default=False, server_default=false()
     )
+    # Денормализованный счётчик лайков, пересчитывается при каждой реакции
+    likes_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )

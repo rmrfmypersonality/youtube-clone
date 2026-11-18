@@ -83,18 +83,12 @@ async def test_cursor_pagination_newest_first(make_client, client, make_video):
     assert seen == created[::-1]
 
 
-async def test_sort_old_first(make_client, client, make_video):
+async def test_sort_values(make_client, client, make_video):
     await make_client("alice")
-    bob = await make_client("bob")
     video = await make_video("alice")
-    created = []
-    for i in range(3):
-        created.append((await post_comment(bob, video.id, f"c{i}")).json()["id"])
-
-    r = await client.get(f"/api/videos/{video.id}/comments", params={"sort": "old"})
-    assert ids(r) == created
-    r = await client.get(f"/api/videos/{video.id}/comments", params={"sort": "oldest"})
-    assert r.status_code == 422
+    url = f"/api/videos/{video.id}/comments"
+    for value, status in (("popular", 200), ("new", 200), ("old", 422), ("oldest", 422)):
+        assert (await client.get(url, params={"sort": value})).status_code == status
 
 
 @pytest.mark.parametrize("params", [{"limit": 0}, {"limit": 51}, {"cursor": 0}, {"cursor": 99999999999}])
