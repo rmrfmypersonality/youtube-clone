@@ -32,6 +32,7 @@ CASES = [
     ("POST", "/api/videos/{video_id}/report", J(reason="spam"), 404, 401),
     ("POST", "/api/comments/{comment_id}/report", J(reason="spam"), 404, 401),
     ("GET", "/api/playlists/{playlist_id}", {}, 404, 404),
+    ("GET", "/api/playlists/{playlist_id}/random", {}, 404, 404),
     ("PATCH", "/api/playlists/{playlist_id}", J(title="hacked"), 404, 401),
     ("DELETE", "/api/playlists/{playlist_id}", {}, 404, 401),
     ("PUT", "/api/playlists/{playlist_id}/items/{video_id}", {}, 404, 401),
