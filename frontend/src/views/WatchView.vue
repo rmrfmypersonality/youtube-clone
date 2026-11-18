@@ -4,7 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { api } from '../api/client'
 import AppIcon from '../components/AppIcon.vue'
 import CommentsSection from '../components/CommentsSection.vue'
-import PlaylistMenu from '../components/PlaylistMenu.vue'
+import SavePlaylistDialog from '../components/SavePlaylistDialog.vue'
 import RelatedVideos from '../components/RelatedVideos.vue'
 import ReportDialog from '../components/ReportDialog.vue'
 import SubscribeButton from '../components/SubscribeButton.vue'
@@ -137,6 +137,17 @@ async function share() {
 
 // --- жалоба и модерация ---
 const reportOpen = ref(false)
+
+const saveOpen = ref(false)
+
+function openSave() {
+  if (!auth.user) {
+    router.push({ name: 'login', query: { next: route.fullPath } })
+    return
+  }
+  saveOpen.value = true
+}
+
 const moderating = ref(false)
 const moderationError = ref('')
 
@@ -255,9 +266,10 @@ async function toggleHidden() {
             <button type="button" class="pill" @click="share">
               <AppIcon name="share" :size="20" />
               <span>Поделиться</span>
-            </button>
-            <PlaylistMenu :video-id="video.id" />
-            <button
+              <button type="button" class="pill" @click="openSave">
+                <AppIcon name="playlistAdd" :size="20" />
+                <span>Сохранить</span>
+              </button>
               v-if="auth.user && !isOwner"
               type="button"
               class="pill"
@@ -287,6 +299,11 @@ async function toggleHidden() {
           kind="video"
           :target-id="video.id"
           @close="reportOpen = false"
+        />
+        <SavePlaylistDialog
+          v-if="saveOpen"
+          :video-id="video.id"
+          @close="saveOpen = false"
         />
 
         <div class="description" :class="{ open: descOpen }">
