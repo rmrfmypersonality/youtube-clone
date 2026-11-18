@@ -2,7 +2,7 @@ import pytest
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 
-from app.models import Playlist, PlaylistKind, Role, User, Visibility
+from app.models import Playlist, PlaylistKind, Role, User, VideoStatus, Visibility
 from app.services import playlists as playlists_service
 
 
@@ -138,3 +138,32 @@ async def test_db_forbids_public_watch_later(make_client, db):
     with pytest.raises(IntegrityError):
         await db.commit()
     await db.rollback()
+
+
+async def test_quick_add_to_watch_later(make_client, client, make_video):
+    await make_client("alice")
+    bob = await make_client("bob")
+    video = await make_video("alice")
+    url = f"/api/playlists/watch-later/items/{video.id}"
+
+    assert (await bob.put(url)).status_code == 204  # плейлист создаётся сам
+    assert (await bob.put(url)).status_code == 204  # идемпотентно
+    detail = await watch_later(bob)
+    assert [v["id"] for v in detail["items"]] == [video.id]
+    assert detail["items_count"] == 1
+    assert (await client.put(url)).status_code == 401
+
+
+async def test_quick_add_follows_playlist_rules(make_client, make_video):
+    alice, bob = await make_client("alice"), await make_client("bob")
+    own_private = await make_video("alice", visibility=Visibility.private)
+    unlisted = await make_video("alice", visibility=Visibility.unlisted)
+    unfinished = await make_video("bob", status=VideoStatus.uploaded)
+
+    assert (await alice.put(f"/api/playlists/watch-later/items/{own_private.id}")).status_code == 204
+    assert (await bob.put(f"/api/playlists/watch-later/items/{own_private.id}")).status_code == 404
+    assert (await bob.put(f"/api/playlists/watch-later/items/{unlisted.id}")).status_code == 400
+    assert (await bob.put(f"/api/playlists/watch-later/items/{unfinished.id}")).status_code == 409
+    assert (await bob.put("/api/playlists/watch-later/items/99999")).status_code == 404
+    assert (await bob.put("/api/playlists/watch-later/items/99999999999")).status_code == 422
+    assert (await watch_later(bob))["items"] == []  # отказы ничего не добавили
