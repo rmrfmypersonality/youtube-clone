@@ -87,3 +87,14 @@ class CommentRepository:
             stmt = stmt.where(Comment.id > cursor)
         rows = (await self.session.execute(stmt.order_by(Comment.id.asc()).limit(limit + 1))).all()
         return [(r.Comment, r.Channel, r.reply_count) for r in rows]
+
+    async def count_for_video(
+        self, video_id: int, *, viewer_id: int | None, is_moderator: bool
+    ) -> int:
+        """Все комментарии и ответы под видео, видимые этому зрителю."""
+        stmt = (
+            select(func.count())
+            .select_from(Comment)
+            .where(Comment.video_id == video_id, _visible(Comment, viewer_id, is_moderator))
+        )
+        return (await self.session.execute(stmt)).scalar_one()

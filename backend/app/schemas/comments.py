@@ -36,3 +36,7 @@ class CommentOut(BaseModel):
 class CommentPage(BaseModel):
     items: list[CommentOut]
     next_cursor: int | None
+
+
+class CommentCount(BaseModel):
+    count: int
