@@ -29,6 +29,7 @@ CASES = [
     ("GET", "/api/videos/{video_id}/comments/count", {}, 404, 404),
     ("POST", "/api/videos/{video_id}/comments", J(text="spam"), 404, 401),
     ("GET", "/api/comments/{comment_id}/replies", {}, 404, 404),
+    ("PUT", "/api/comments/{comment_id}/reaction", J(value=1), 404, 401),
     ("DELETE", "/api/comments/{comment_id}", {}, 404, 401),
     ("POST", "/api/videos/{video_id}/report", J(reason="spam"), 404, 401),
     ("POST", "/api/comments/{comment_id}/report", J(reason="spam"), 404, 401),
