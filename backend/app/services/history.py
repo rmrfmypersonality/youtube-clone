@@ -11,8 +11,13 @@ class HistoryService:
         self.session = session
         self.history = HistoryRepository(session)
 
-    async def list(self, user: User, *, cursor: int | None, limit: int) -> HistoryPage:
-        rows = await self.history.list_page(user.id, cursor=cursor, limit=limit)
+    async def list(
+            self, user: User, *, cursor: int | None, limit: int, q: str | None = None
+    ) -> HistoryPage:
+        query = (q or "").replace("\x00", "").strip()  # NUL Postgres не принимает
+        rows = await self.history.list_page(
+            user.id, cursor=cursor, limit=limit, query=query or None
+        )
         has_more = len(rows) > limit  # репозиторий берёт limit + 1
         rows = rows[:limit]
         return HistoryPage(
