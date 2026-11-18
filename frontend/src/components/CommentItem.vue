@@ -11,7 +11,7 @@ const props = defineProps({
   videoId: { type: Number, required: true },
   reply: Boolean, // ответ: без своей ветки и кнопки «Ответить»
 })
-const emit = defineEmits(['deleted'])
+const emit = defineEmits(['deleted', 'changed'])
 
 const { state: auth, isModerator } = useAuth()
 
@@ -73,6 +73,7 @@ function toggleReplies() {
 function onReplyDeleted(id) {
   replyItems.value = replyItems.value.filter((r) => r.id !== id)
   replyCount.value--
+  emit('changed')
 }
 
 const replying = ref(false)
@@ -90,6 +91,7 @@ async function sendReply() {
     replyText.value = ''
     replying.value = false
     replyCount.value++
+    emit('changed')
     if (open.value && repliesDone.value) {
       replyItems.value.push(created)
     } else {

@@ -58,3 +58,7 @@ export function formatSubscribers(n) {
   const m = n < 10_000_000 ? Math.floor(n / 100_000) / 10 : Math.floor(n / 1_000_000)
   return `${String(m).replace('.', ',')} млн подписчиков`
 }
+
+export function formatComments(n) {
+  return `${n.toLocaleString('ru-RU')} ${plural(n, 'комментарий', 'комментария', 'комментариев')}`
+}

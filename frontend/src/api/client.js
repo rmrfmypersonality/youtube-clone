@@ -128,11 +128,11 @@ export const api = {
   },
   search: (q, cursor) => request('GET', `/search${qs({ q, cursor })}`),
   comments: {
-    list: (videoId, sort, cursor) =>
-      request('GET', `/videos/${videoId}/comments${qs({ sort, cursor })}`),
+    list: (videoId, sort, cursor) => request('GET', `/videos/${videoId}/comments${qs({ sort, cursor })}`),
     create: (videoId, payload) => request('POST', `/videos/${videoId}/comments`, payload),
     replies: (id, cursor) => request('GET', `/comments/${id}/replies${qs({ cursor })}`),
     remove: (id) => request('DELETE', `/comments/${id}`),
+    count: (videoId) => request('GET', `/videos/${videoId}/comments/count`),
   },
   channels: {
     get: (handle) => request('GET', `/channels/${handle}`),
