@@ -155,7 +155,7 @@ export const api = {
     likedVideos: (cursor) => request('GET', `/playlists/liked/videos${qs({ cursor })}`),
     random: (id) => request('GET', `/playlists/${id}/random`),
   },
-    reports: {
+  reports: {
     video: (id, payload) => request('POST', `/videos/${id}/report`, payload),
     comment: (id, payload) => request('POST', `/comments/${id}/report`, payload),
   },
@@ -183,7 +183,7 @@ export const api = {
     list: () => request('GET', '/categories'),
   },
   history: {
-    list: (cursor) => request('GET', `/history${qs({ cursor })}`),
+    list: (cursor, q) => request('GET', `/history${qs({ cursor, q })}`),
     remove: (videoId) => request('DELETE', `/history/${videoId}`),
     clear: () => request('DELETE', '/history'),
   },
