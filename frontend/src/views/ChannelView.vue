@@ -33,9 +33,6 @@ const {
 const playlists = ref([])
 const playlistsLoaded = ref(false)
 const playlistsError = ref('')
-const newTitle = ref('')
-const creating = ref(false)
-const createError = ref('')
 
 async function load() {
   const t = ++token
@@ -82,21 +79,6 @@ watch([tab, channel], () => {
 function onSubscription(res) {
   channel.value.is_subscribed = res.subscribed
   channel.value.subscribers_count = res.subscribers_count
-}
-
-async function createPlaylist() {
-  const title = newTitle.value.trim()
-  if (!title || creating.value) return
-  creating.value = true
-  createError.value = ''
-  try {
-    playlists.value.unshift(await api.playlists.create({ title }))
-    newTitle.value = ''
-  } catch (e) {
-    createError.value = e.message
-  } finally {
-    creating.value = false
-  }
 }
 </script>
 
@@ -164,16 +146,16 @@ async function createPlaylist() {
       </section>
 
       <section v-else class="content">
-        <form v-if="channel.is_owner" class="create" @submit.prevent="createPlaylist">
-          <input v-model="newTitle" maxlength="100" placeholder="Название нового плейлиста" />
-          <button class="btn btn-primary" :disabled="creating || !newTitle.trim()">Создать</button>
-        </form>
-        <p v-if="createError" class="error" role="alert">{{ createError }}</p>
         <p v-if="playlistsError" class="error" role="alert">{{ playlistsError }}</p>
         <div class="video-grid">
           <PlaylistCard v-for="pl in playlists" :key="pl.id" :playlist="pl" />
         </div>
-        <p v-if="playlistsLoaded && !playlists.length" class="muted empty">Плейлистов пока нет</p>
+        <p v-if="playlistsLoaded && !playlists.length" class="muted empty">
+          Плейлистов пока нет.
+          <template v-if="channel.is_owner">
+            Создайте плейлист на странице любого видео, кнопка «Сохранить».
+          </template>
+        </p>
       </section>
     </template>
   </div>
@@ -247,23 +229,6 @@ h1 {
 }
 .content {
   padding-top: 24px;
-}
-.create {
-  display: flex;
-  gap: 8px;
-  max-width: 520px;
-  margin-bottom: 16px;
-}
-.create input {
-  flex: 1;
-  min-width: 0;
-  padding: 0 14px;
-  height: 36px;
-  border: 1px solid var(--border);
-  border-radius: 18px;
-  background: var(--bg);
-  color: var(--text);
-  font: inherit;
 }
 .empty {
   text-align: center;

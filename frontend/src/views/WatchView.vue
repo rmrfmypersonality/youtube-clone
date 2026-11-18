@@ -4,7 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { api } from '../api/client'
 import AppIcon from '../components/AppIcon.vue'
 import CommentsSection from '../components/CommentsSection.vue'
-import PlaylistMenu from '../components/PlaylistMenu.vue'
+import SavePlaylistDialog from '../components/SavePlaylistDialog.vue'
 import RelatedVideos from '../components/RelatedVideos.vue'
 import ReportDialog from '../components/ReportDialog.vue'
 import SubscribeButton from '../components/SubscribeButton.vue'
@@ -136,6 +136,17 @@ async function share() {
 }
 
 // --- жалоба и модерация ---
+
+const saveOpen = ref(false)
+
+function openSave() {
+  if (!auth.user) {
+    router.push({ name: 'login', query: { next: route.fullPath } })
+    return
+  }
+  saveOpen.value = true
+}
+
 const reportOpen = ref(false)
 const moderating = ref(false)
 const moderationError = ref('')
@@ -256,7 +267,10 @@ async function toggleHidden() {
               <AppIcon name="share" :size="20" />
               <span>Поделиться</span>
             </button>
-            <PlaylistMenu :video-id="video.id" />
+            <button type="button" class="pill" @click="openSave">
+              <AppIcon name="playlistAdd" :size="20" />
+              <span>Сохранить</span>
+            </button>
             <button
               v-if="auth.user && !isOwner"
               type="button"
@@ -282,6 +296,11 @@ async function toggleHidden() {
         <p v-if="shareNote" class="muted" role="status">{{ shareNote }}</p>
         <p v-if="reactError" class="error" role="alert">{{ reactError }}</p>
         <p v-if="moderationError" class="error" role="alert">{{ moderationError }}</p>
+        <SavePlaylistDialog
+          v-if="saveOpen"
+          :video-id="video.id"
+          @close="saveOpen = false"
+        />
         <ReportDialog
           v-if="reportOpen"
           kind="video"
