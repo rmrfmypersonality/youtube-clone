@@ -136,7 +136,6 @@ async function share() {
 }
 
 // --- жалоба и модерация ---
-const reportOpen = ref(false)
 
 const saveOpen = ref(false)
 
@@ -148,6 +147,7 @@ function openSave() {
   saveOpen.value = true
 }
 
+const reportOpen = ref(false)
 const moderating = ref(false)
 const moderationError = ref('')
 
@@ -266,10 +266,12 @@ async function toggleHidden() {
             <button type="button" class="pill" @click="share">
               <AppIcon name="share" :size="20" />
               <span>Поделиться</span>
-              <button type="button" class="pill" @click="openSave">
-                <AppIcon name="playlistAdd" :size="20" />
-                <span>Сохранить</span>
-              </button>
+            </button>
+            <button type="button" class="pill" @click="openSave">
+              <AppIcon name="playlistAdd" :size="20" />
+              <span>Сохранить</span>
+            </button>
+            <button
               v-if="auth.user && !isOwner"
               type="button"
               class="pill"
@@ -294,16 +296,16 @@ async function toggleHidden() {
         <p v-if="shareNote" class="muted" role="status">{{ shareNote }}</p>
         <p v-if="reactError" class="error" role="alert">{{ reactError }}</p>
         <p v-if="moderationError" class="error" role="alert">{{ moderationError }}</p>
+        <SavePlaylistDialog
+          v-if="saveOpen"
+          :video-id="video.id"
+          @close="saveOpen = false"
+        />
         <ReportDialog
           v-if="reportOpen"
           kind="video"
           :target-id="video.id"
           @close="reportOpen = false"
-        />
-        <SavePlaylistDialog
-          v-if="saveOpen"
-          :video-id="video.id"
-          @close="saveOpen = false"
         />
 
         <div class="description" :class="{ open: descOpen }">
