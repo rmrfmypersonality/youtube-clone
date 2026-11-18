@@ -8,7 +8,7 @@ from app.policies import comments as comment_policy
 from app.policies.roles import can_moderate
 from app.repositories.audit import AuditRepository
 from app.repositories.comments import CommentRepository
-from app.schemas.comments import CommentAuthor, CommentCreate, CommentOut, CommentPage
+from app.schemas.comments import CommentAuthor, CommentCreate, CommentOut, CommentPage, CommentCount
 from app.services.video_access import VideoAccess
 
 COMMENT_NOT_FOUND = "Комментарий не найден"
@@ -117,3 +117,8 @@ class CommentService:
             )
         await self.session.delete(comment)  # ответы и жалобы удалит каскад в БД
         await self.session.commit()
+
+    async def count(self, user: User | None, video_id: int) -> CommentCount:
+        await self.access.visible(user, video_id)
+        n = await self.comments.count_for_video(video_id, **_viewer(user))
+        return CommentCount(count=n)

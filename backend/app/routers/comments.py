@@ -4,7 +4,7 @@ from fastapi import APIRouter
 
 from app.core.deps import CurrentUser, OptionalUser, SessionDep
 from app.core.params import CursorQuery, IdPath, LimitQuery
-from app.schemas.comments import CommentCreate, CommentOut, CommentPage
+from app.schemas.comments import CommentCreate, CommentOut, CommentPage, CommentCount
 from app.services.comments import CommentService
 
 router = APIRouter(prefix="/api", tags=["comments"])
@@ -22,6 +22,12 @@ async def list_comments(
     return await CommentService(session).list_for_video(
         user, video_id, sort=sort, cursor=cursor, limit=limit
     )
+
+
+@router.get("/videos/{video_id}/comments/count", response_model=CommentCount)
+async def comments_count(video_id: IdPath, user: OptionalUser, session: SessionDep):
+    """Сколько комментариев (с ответами) видит этот пользователь."""
+    return await CommentService(session).count(user, video_id)
 
 
 @router.post("/videos/{video_id}/comments", response_model=CommentOut, status_code=201)
