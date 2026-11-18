@@ -1,6 +1,7 @@
 from sqlalchemy import and_, delete, or_, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
+from app.core.sql import escape_like
 
 from app.models import Channel, Video, VideoShare, VideoStatus, Visibility, WatchHistory
 
@@ -36,7 +37,7 @@ class HistoryRepository:
         )
 
     async def list_page(
-        self, user_id: int, *, cursor: int | None, limit: int
+            self, user_id: int, *, cursor: int | None, limit: int, query: str | None = None
     ) -> list[tuple[WatchHistory, Video, Channel]]:
         stmt = (
             select(WatchHistory, Video, Channel)
@@ -48,6 +49,8 @@ class HistoryRepository:
         )
         if cursor is not None:
             stmt = stmt.where(WatchHistory.id < cursor)
+        if query:
+            stmt = stmt.where(Video.title.ilike(f"%{escape_like(query)}%", escape="\\"))
         rows = (await self.session.execute(stmt)).all()
         return [(r.WatchHistory, r.Video, r.Channel) for r in rows]
 
