@@ -178,3 +178,52 @@ async def test_deleting_video_removes_it_from_history(make_client, make_video, d
     assert (await alice.delete(f"/api/videos/{video.id}")).status_code == 204
     assert ids(await history(bob)) == []
     assert (await db.execute(select(func.count()).select_from(WatchHistory))).scalar_one() == 0
+
+
+async def test_search_in_history(make_client, make_video):
+    await make_client("alice")
+    bob = await make_client("bob")
+    py = await make_video("alice", title="Python tutorial")
+    cook = await make_video("alice", title="Cooking pasta")
+    ru = await make_video("alice", title="Привет, мир")
+    for video in (py, cook, ru):
+        await view(bob, video.id)
+
+    assert ids(await history(bob, q="python")) == [py.id]
+    assert ids(await history(bob, q="PYTH")) == [py.id]
+    assert ids(await history(bob, q="ПРИВЕТ")) == [ru.id]
+    assert ids(await history(bob, q="nothing")) == []
+    assert ids(await history(bob, q="   ")) == [ru.id, cook.id, py.id]  # пустой запрос = всё
+    assert ids(await history(bob, q="a\x00b")) == []  # не 500
+
+
+async def test_search_escapes_wildcards(make_client, make_video):
+    await make_client("alice")
+    bob = await make_client("bob")
+    percent = await make_video("alice", title="100% legit")
+    plain = await make_video("alice", title="plain")
+    for video in (percent, plain):
+        await view(bob, video.id)
+    assert ids(await history(bob, q="%")) == [percent.id]
+    assert ids(await history(bob, q="_")) == []
+
+
+async def test_search_respects_access_and_pagination(make_client, make_video):
+    alice, bob = await make_client("alice"), await make_client("bob")
+    closed = await make_video("alice", title="clip closed")
+    created = [(await make_video("alice", title=f"clip {i}")).id for i in range(3)]
+    for video_id in [closed.id, *created]:
+        await view(bob, video_id)
+    await alice.patch(f"/api/videos/{closed.id}", json={"visibility": "private"})
+
+    first = await history(bob, q="clip", limit=2)
+    assert ids(first) == created[::-1][:2]
+    second = await history(bob, q="clip", limit=2, cursor=first["next_cursor"])
+    assert ids(second) == created[::-1][2:]
+    assert second["next_cursor"] is None  # закрытое видео не попало в выдачу
+
+
+async def test_search_query_too_long(make_client):
+    bob = await make_client("bob")
+    r = await bob.get("/api/history", params={"q": "x" * 101})
+    assert r.status_code == 422
