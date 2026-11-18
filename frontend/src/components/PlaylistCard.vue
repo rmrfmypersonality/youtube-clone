@@ -1,10 +1,12 @@
 <script setup>
 import { VISIBILITY_LABELS } from '../composables/visibility'
 defineProps({ playlist: { type: Object, required: true } })
+const target = (p) =>
+  p.kind === 'liked' ? '/liked' : p.kind === 'watch_later' ? '/watch-later' : `/playlist/${p.id}`
 </script>
 
 <template>
-  <RouterLink :to="`/playlist/${playlist.id}`" class="card">
+  <RouterLink :to="target(playlist)" class="card">
     <div class="cover">
       <img
         v-if="playlist.cover_video_id"

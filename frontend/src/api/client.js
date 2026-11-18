@@ -151,6 +151,9 @@ export const api = {
     addItem: (id, videoId) => request('PUT', `/playlists/${id}/items/${videoId}`),
     removeItem: (id, videoId) => request('DELETE', `/playlists/${id}/items/${videoId}`),
     watchLater: () => request('GET', '/playlists/watch-later'),
+    liked: () => request('GET', '/playlists/liked'),
+    likedVideos: (cursor) => request('GET', `/playlists/liked/videos${qs({ cursor })}`),
+    random: (id) => request('GET', `/playlists/${id}/random`),
   },
     reports: {
     video: (id, payload) => request('POST', `/videos/${id}/report`, payload),

@@ -13,9 +13,12 @@ from app.schemas.playlists import (
     PlaylistMineOut,
     PlaylistOut,
     PlaylistUpdate,
+    RandomVideoOut,
 )
 from app.services.feed import to_card
 from app.services.video_access import VideoAccess
+from app.repositories.likes import LikeRepository
+from app.schemas.videos import VideoPage
 
 MAX_PLAYLISTS = 100
 MAX_ITEMS = 200
@@ -45,6 +48,7 @@ class PlaylistService:
         self.channels = ChannelRepository(session)
         self.access = VideoAccess(session)
         self.audit = AuditRepository(session)
+        self.likes = LikeRepository(session)
 
     async def _viewable(self, user: User | None, playlist_id: int) -> Playlist:
         playlist = await self.playlists.get(playlist_id)
@@ -84,7 +88,11 @@ class PlaylistService:
         playlist = await self._viewable(user, playlist_id)
         viewer_id = user.id if user else None
         row = await self.playlists.summary(playlist.id, viewer_id)
-        rows = await self.playlists.list_items(playlist.id, viewer_id, MAX_ITEMS)
+        if playlist.kind == PlaylistKind.liked:
+            liked = await self.likes.list_liked(playlist.owner_id, cursor=None, limit=MAX_ITEMS)
+            rows = [(video, channel) for _, video, channel in liked[:MAX_ITEMS]]
+        else:
+            rows = await self.playlists.list_items(playlist.id, viewer_id, MAX_ITEMS)
         return _out(
             row,
             PlaylistDetailOut,
@@ -124,6 +132,8 @@ class PlaylistService:
         playlist = await self.playlists.get(playlist_id)
         if playlist is None or not policy.can_modify_items(user, playlist):
             raise NotFound(NOT_FOUND)
+        if playlist.kind == PlaylistKind.liked:
+            raise AppError("Этот плейлист меняется только лайками")
         video, _ = await self.access.visible(user, video_id)
         if video.status != VideoStatus.ready:
             raise Conflict("Видео ещё не готово")
@@ -138,6 +148,8 @@ class PlaylistService:
         playlist = await self.playlists.get(playlist_id)
         if playlist is None or not policy.can_modify_items(user, playlist):
             raise NotFound(NOT_FOUND)
+        if playlist.kind == PlaylistKind.liked:
+            raise AppError("Этот плейлист меняется только лайками")
         await self.playlists.remove_item(playlist.id, video_id)
         await self.session.commit()
 
@@ -148,17 +160,24 @@ class PlaylistService:
             raise NotFound("Канал не найден")
         if is_owner:
             await self._ensure_watch_later(viewer)
+            await self._ensure_liked(viewer)
         rows = await self.playlists.list_summaries(
             owner_id=channel.owner_id,
             viewer_id=viewer.id if viewer else None,
             only_public=not is_owner,
         )
+        # Пустые встроенные плейлисты не показываем
+        rows = [r for r in rows if r.Playlist.kind == PlaylistKind.regular or r.items_count > 0]
         return [_out(r) for r in rows]
 
     async def list_mine(self, user: User, video_id: int | None) -> list[PlaylistMineOut]:
         await self._ensure_watch_later(user)
         rows = await self.playlists.list_summaries(
-            owner_id=user.id, viewer_id=user.id, only_public=False, contains_video_id=video_id
+            owner_id=user.id,
+            viewer_id=user.id,
+            only_public=False,
+            contains_video_id=video_id,
+            exclude_kinds=(PlaylistKind.liked,),  # меняется только лайками, в «Сохранить» ему не место
         )
         return [_out(r, PlaylistMineOut, contains=bool(r.contains)) for r in rows]
 
@@ -171,6 +190,32 @@ class PlaylistService:
         playlist = await self.playlists.ensure_watch_later(user.id)
         await self.session.commit()
         return playlist
+
+    async def _ensure_liked(self, user: User) -> Playlist:
+        playlist = await self.playlists.ensure_liked(user.id)
+        await self.session.commit()
+        return playlist
+
+    async def liked(self, user: User) -> PlaylistOut:
+        playlist = await self._ensure_liked(user)
+        return await self._out_for(playlist.id, user)
+
+    async def liked_videos(self, user: User, *, cursor: int | None, limit: int) -> VideoPage:
+        rows = await self.likes.list_liked(user.id, cursor=cursor, limit=limit)
+        has_more = len(rows) > limit  # репозиторий берёт limit + 1
+        rows = rows[:limit]
+        return VideoPage(
+            items=[to_card(video, channel) for _, video, channel in rows],
+            next_cursor=rows[-1][0].id if has_more else None,  # id лайка, не видео
+        )
+
+    async def random(self, user: User | None, playlist_id: int) -> RandomVideoOut:
+        playlist = await self._viewable(user, playlist_id)
+        if playlist.kind == PlaylistKind.liked:
+            video_id = await self.likes.random_liked(playlist.owner_id)
+        else:
+            video_id = await self.playlists.random_item(playlist.id, user.id if user else None)
+        return RandomVideoOut(video_id=video_id)
 
     async def watch_later(self, user: User) -> PlaylistDetailOut:
         playlist = await self._ensure_watch_later(user)

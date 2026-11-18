@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { api } from '../api/client'
+import PlaylistSidePanel from '../components/PlaylistSidePanel.vue'
 import VideoCard from '../components/VideoCard.vue'
 import { useAuth } from '../composables/useAuth'
 import { VISIBILITY_LABELS } from '../composables/visibility'
@@ -31,7 +32,9 @@ async function load() {
   editing.value = false
   try {
     await init()
-    const data = isWatchLater.value ? await api.playlists.watchLater() : await api.playlists.get(Number(route.params.id))
+    const data = isWatchLater.value
+      ? await api.playlists.watchLater()
+      : await api.playlists.get(Number(route.params.id))
     if (t !== token) return
     playlist.value = data
     document.title = `${data.title} — YouTube Clone`
@@ -89,6 +92,7 @@ async function removeItem(videoId) {
     await api.playlists.removeItem(playlist.value.id, videoId)
     playlist.value.items = playlist.value.items.filter((v) => v.id !== videoId)
     playlist.value.items_count = playlist.value.items.length
+    playlist.value.cover_video_id = playlist.value.items[0]?.id ?? null
   } catch (e) {
     actionError.value = e.message
   }
@@ -100,9 +104,18 @@ async function removeItem(videoId) {
     <p v-if="loading" class="muted">Загрузка…</p>
     <p v-else-if="error" class="error" role="alert">{{ error }}</p>
 
-    <template v-else-if="playlist">
-      <header class="head">
-        <form v-if="editing" @submit.prevent="save">
+    <div v-else-if="playlist" class="layout">
+      <div class="side">
+        <PlaylistSidePanel :playlist="playlist">
+          <div v-if="playlist.is_owner && playlist.kind === 'regular' && !editing" class="owner">
+            <button type="button" class="pill" @click="startEdit">Изменить</button>
+            <button type="button" class="pill" @click="removePlaylist">Удалить</button>
+          </div>
+        </PlaylistSidePanel>
+      </div>
+
+      <div class="list">
+        <form v-if="editing" class="edit" @submit.prevent="save">
           <label class="field">
             <span>Название</span>
             <input v-model="title" maxlength="100" required />
@@ -124,60 +137,59 @@ async function removeItem(videoId) {
             <button class="btn btn-primary" :disabled="busy || !title.trim()">Сохранить</button>
           </div>
         </form>
-
-        <template v-else>
-          <h1>{{ playlist.title }}</h1>
-          <div class="muted">
-            <RouterLink :to="`/@${playlist.channel.handle}`">{{ playlist.channel.name }}</RouterLink>
-            • {{ playlist.items_count }} видео
-            <template v-if="playlist.visibility !== 'public'">
-              • {{ VISIBILITY_LABELS[playlist.visibility] }}
-            </template>
-          </div>
-          <p v-if="playlist.description" class="desc">{{ playlist.description }}</p>
-          <div v-if="playlist.is_owner && playlist.kind === 'regular'" class="row">
-            <button type="button" class="btn" @click="startEdit">Изменить</button>
-            <button type="button" class="btn" @click="removePlaylist">Удалить</button>
-          </div>
-        </template>
+        <p v-else-if="playlist.description" class="desc">{{ playlist.description }}</p>
         <p v-if="actionError" class="error" role="alert">{{ actionError }}</p>
-      </header>
 
-      <p v-if="!playlist.items.length" class="muted">В плейлисте пока нет видео</p>
-      <div v-for="video in playlist.items" :key="video.id" class="item">
-        <VideoCard :video="video" horizontal class="card" />
-        <button v-if="playlist.is_owner" type="button" class="btn" @click="removeItem(video.id)">
-          Убрать
-        </button>
+        <p v-if="!playlist.items.length" class="muted">Здесь пока ничего нет</p>
+        <div v-for="video in playlist.items" :key="video.id" class="item">
+          <VideoCard :video="video" horizontal class="card" />
+          <button v-if="playlist.is_owner" type="button" class="btn" @click="removeItem(video.id)">
+            Убрать
+          </button>
+        </div>
       </div>
-    </template>
+    </div>
   </div>
 </template>
 
 <style scoped>
 .playlist {
-  max-width: 1000px;
+  max-width: 1400px;
   margin: 0 auto;
-  padding: 24px 16px;
+  padding: 24px;
 }
-.head {
+.layout {
+  display: flex;
+  gap: 24px;
+  align-items: flex-start;
+}
+.side {
+  position: sticky;
+  top: calc(var(--header-height) + 24px);
+  flex: 0 0 360px;
+  width: 360px;
+}
+.list {
+  flex: 1;
+  min-width: 0;
+}
+.owner {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+}
+.edit {
+  max-width: 520px;
   margin-bottom: 24px;
-}
-h1 {
-  margin: 0 0 4px;
-  font-size: 24px;
-  font-weight: 600;
-  overflow-wrap: anywhere;
-}
-.desc {
-  margin: 8px 0;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
 }
 .row {
   display: flex;
   gap: 8px;
-  margin-top: 12px;
+}
+.desc {
+  margin: 0 0 16px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 .item {
   display: flex;
@@ -188,5 +200,19 @@ h1 {
 .card {
   flex: 1;
   min-width: 0;
+}
+@media (max-width: 900px) {
+  .playlist {
+    padding: 16px 12px;
+  }
+  .layout {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .side {
+    position: static;
+    flex: none;
+    width: auto;
+  }
 }
 </style>

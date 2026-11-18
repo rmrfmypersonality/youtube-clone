@@ -34,9 +34,12 @@ async def test_created_only_once(make_client, db):
     assert (await db.execute(stmt)).scalar_one() == 1
 
 
-async def test_listed_first_and_hidden_from_others(make_client, client):
+async def test_listed_first_and_hidden_from_others(make_client, client, make_video):
     alice, bob = await make_client("alice"), await make_client("bob")
+    video = await make_video("alice")
     mix = (await alice.post("/api/playlists", json={"title": "Mix"})).json()  # создан раньше «Смотреть позже»
+    wl = await watch_later(alice)
+    assert (await alice.put(f"/api/playlists/{wl['id']}/items/{video.id}")).status_code == 204
 
     mine = (await alice.get("/api/playlists/mine")).json()
     assert [p["kind"] for p in mine] == ["watch_later", "regular"]
@@ -46,6 +49,13 @@ async def test_listed_first_and_hidden_from_others(make_client, client):
     for viewer in (bob, client):
         shown = (await viewer.get("/api/channels/alice/playlists")).json()
         assert [p["id"] for p in shown] == [mix["id"]]
+
+
+async def test_empty_watch_later_hidden_on_channel_but_present_in_save_dialog(make_client):
+    alice = await make_client("alice")
+    assert (await alice.get("/api/channels/alice/playlists")).json() == []
+    mine = (await alice.get("/api/playlists/mine")).json()
+    assert [p["kind"] for p in mine] == ["watch_later"]  # в окне «Сохранить» есть всегда
 
 
 async def test_add_and_remove_items(make_client, make_video):

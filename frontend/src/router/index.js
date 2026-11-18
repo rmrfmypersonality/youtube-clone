@@ -15,6 +15,7 @@ import SubscriptionsView from '../views/SubscriptionsView.vue'
 import SettingsView from '../views/SettingsView.vue'
 import HistoryView from '../views/HistoryView.vue'
 import NotificationsView from '../views/NotificationsView.vue'
+import LikedView from '../views/LikedView.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -33,6 +34,7 @@ const router = createRouter({
     { path: '/subscriptions', name: 'subscriptions', component: SubscriptionsView, meta: { requiresAuth: true },},
     { path: '/settings', name: 'settings', component: SettingsView, meta: { requiresAuth: true } },
     { path: '/watch-later', name: 'watch-later', component: PlaylistView, meta: { requiresAuth: true },},
+    { path: '/liked', name: 'liked', component: LikedView, meta: { requiresAuth: true } },
     { path: '/history', name: 'history', component: HistoryView, meta: { requiresAuth: true } },
     { path: '/notifications', name: 'notifications', component: NotificationsView, meta: { requiresAuth: true },},
   ],

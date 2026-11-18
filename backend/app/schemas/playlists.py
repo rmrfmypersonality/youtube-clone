@@ -37,3 +37,7 @@ class PlaylistMineOut(PlaylistOut):
 class PlaylistDetailOut(PlaylistOut):
     items: list[VideoCardOut]
     is_owner: bool
+
+
+class RandomVideoOut(BaseModel):
+    video_id: int | None  # None, если в плейлисте нет доступных видео
