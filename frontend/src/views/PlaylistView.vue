@@ -148,7 +148,7 @@ const removeLabel = computed(() => {
         <p v-if="actionError" class="error" role="alert">{{ actionError }}</p>
 
         <p v-if="!playlist.items.length" class="muted">Здесь пока ничего нет</p>
-        <VideoCard v-for="video in playlist.items" :key="video.id" :video="video" horizontal class="item" :remove-label="removeLabel" :hide-watch-later="playlist.kind === 'watch_later'" @remove="(v) => removeItem(v.id)"/>
+        <VideoCard v-for="video in playlist.items" :key="video.id" :video="video" horizontal class="item playlist-card" :remove-label="removeLabel" :hide-watch-later="playlist.kind === 'watch_later'" @remove="(v) => removeItem(v.id)"/>
       </div>
     </div>
   </div>

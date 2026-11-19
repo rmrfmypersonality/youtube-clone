@@ -231,13 +231,22 @@ function report() {
   color: var(--link);
 }
 .menu-wrap {
+  position: relative;
+  flex: none;
+}
+.playlist-card .menu-wrap {
   position: absolute;
   top: 8px;
   right: 8px;
   z-index: 12;
 }
-.horizontal {
-  position: relative;
+
+.playlist-card .info {
+  position: static;
+}
+
+.playlist-card .text {
+  padding-right: 32px;
 }
 .horizontal .text {
   padding-right: 32px;
