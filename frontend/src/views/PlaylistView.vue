@@ -97,6 +97,13 @@ async function removeItem(videoId) {
     actionError.value = e.message
   }
 }
+// Вручную убирать можно только из своих обычных плейлистов и «Смотреть позже»
+const removeLabel = computed(() => {
+  if (!playlist.value?.is_owner || playlist.value.kind === 'liked') return ''
+  return playlist.value.kind === 'watch_later'
+    ? 'Удалить из «Смотреть позже»'
+    : 'Удалить из плейлиста'
+})
 </script>
 
 <template>
@@ -141,12 +148,7 @@ async function removeItem(videoId) {
         <p v-if="actionError" class="error" role="alert">{{ actionError }}</p>
 
         <p v-if="!playlist.items.length" class="muted">Здесь пока ничего нет</p>
-        <div v-for="video in playlist.items" :key="video.id" class="item">
-          <VideoCard :video="video" horizontal class="card" />
-          <button v-if="playlist.is_owner" type="button" class="btn" @click="removeItem(video.id)">
-            Убрать
-          </button>
-        </div>
+        <VideoCard v-for="video in playlist.items" :key="video.id" :video="video" horizontal class="item" :remove-label="removeLabel" :hide-watch-later="playlist.kind === 'watch_later'" @remove="(v) => removeItem(v.id)"/>
       </div>
     </div>
   </div>
@@ -192,14 +194,7 @@ async function removeItem(videoId) {
   overflow-wrap: anywhere;
 }
 .item {
-  display: flex;
-  gap: 12px;
-  align-items: flex-start;
   margin-bottom: 16px;
-}
-.card {
-  flex: 1;
-  min-width: 0;
 }
 @media (max-width: 900px) {
   .playlist {

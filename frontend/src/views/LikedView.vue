@@ -20,14 +20,41 @@ onMounted(async () => {
     loadError.value = e.message
   }
 })
+
+const actionError = ref('')
+
+// Снимает лайк с видео: оно пропадает из плейлиста
+async function unlike(video) {
+  actionError.value = ''
+  try {
+    await api.videos.react(video.id, 0)
+    items.value = items.value.filter((v) => v.id !== video.id)
+    if (playlist.value) {
+      playlist.value.items_count = Math.max(0, playlist.value.items_count - 1)
+      // обложка это последний лайк; если убрали его, пока подгружены не все, берём следующий из списка
+      if (playlist.value.cover_video_id === video.id) {
+        playlist.value.cover_video_id = items.value[0]?.id ?? null
+      }
+    }
+  } catch (e) {
+    actionError.value = e.message
+  }
+}
 </script>
 
 <template>
   <div class="liked">
-    <p v-if="loadError" class="error" role="alert">{{ loadError }}</p>
+    <p v-if="actionError" class="error" role="alert">{{ actionError }}</p>
     <div class="side"><PlaylistSidePanel v-if="playlist" :playlist="playlist" /></div>
     <div class="list">
-      <VideoCard v-for="video in items" :key="video.id" :video="video" horizontal />
+      <VideoCard
+        v-for="video in items"
+        :key="video.id"
+        :video="video"
+        horizontal
+        remove-label="Удалить из понравившихся"
+        @remove="unlike"
+      />
       <p v-if="done && !items.length" class="muted">Здесь пока ничего нет</p>
       <InfiniteScroll :loading="loading" :done="done" :error="error" @load="loadMore" />
     </div>
