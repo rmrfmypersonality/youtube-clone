@@ -389,4 +389,9 @@ async function onLogout() {
     display: grid;
   }
 }
+@media (max-width: 380px) {
+  .right {
+    gap: 3px;
+  }
+}
 </style>
