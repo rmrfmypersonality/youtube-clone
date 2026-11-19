@@ -123,20 +123,39 @@ async function onLogout() {
             {{ initial }}
           </button>
           <div v-if="menuOpen" class="backdrop" @click="menuOpen = false" />
-          <div v-if="menuOpen" class="menu">
+                    <div v-if="menuOpen" class="menu">
             <div class="menu-head">
-              <div class="menu-name">{{ state.user.channel.name }}</div>
-              <div class="muted">@{{ state.user.channel.handle }}</div>
-              <div v-if="roleLabel" class="muted">{{ roleLabel }}</div>
+              <span class="menu-avatar">{{ initial }}</span>
+              <div class="menu-who">
+                <div class="menu-name">{{ state.user.channel.name }}</div>
+                <div class="muted">@{{ state.user.channel.handle }}</div>
+                <div v-if="roleLabel" class="muted">{{ roleLabel }}</div>
+              </div>
             </div>
             <RouterLink class="menu-item" :to="`/@${state.user.channel.handle}`">
-              Мой канал
+              <AppIcon name="account" :size="22" />
+              <span>Мой канал</span>
             </RouterLink>
-            <RouterLink class="menu-item" to="/studio">Мои видео</RouterLink>
-            <RouterLink class="menu-item" to="/settings">Настройки</RouterLink>
-            <RouterLink v-if="isModerator" class="menu-item" to="/moderation">Модерация</RouterLink>
-            <RouterLink v-if="isAdmin" class="menu-item" to="/admin">Администрирование</RouterLink>
-            <button class="menu-item" type="button" @click="onLogout">Выйти</button>
+            <RouterLink class="menu-item" to="/studio">
+              <AppIcon name="library" :size="22" />
+              <span>Мои видео</span>
+            </RouterLink>
+            <RouterLink class="menu-item" to="/settings">
+              <AppIcon name="settings" :size="22" />
+              <span>Настройки</span>
+            </RouterLink>
+            <RouterLink v-if="isModerator" class="menu-item" to="/moderation">
+              <AppIcon name="moderation" :size="22" />
+              <span>Модерация</span>
+            </RouterLink>
+            <RouterLink v-if="isAdmin" class="menu-item" to="/admin">
+              <AppIcon name="admin" :size="22" />
+              <span>Администрирование</span>
+            </RouterLink>
+            <button class="menu-item" type="button" @click="onLogout">
+              <AppIcon name="logout" :size="22" />
+              <span>Выйти</span>
+            </button>
           </div>
         </div>
 
@@ -261,14 +280,35 @@ async function onLogout() {
   box-shadow: 0 4px 32px rgba(0, 0, 0, 0.4);
 }
 .menu-head {
+  display: flex;
+  gap: 16px;
+  align-items: center;
   padding: 8px 16px 12px;
   border-bottom: 1px solid var(--border);
+}
+.menu-avatar {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--link);
+  color: var(--on-link);
+  font-size: 18px;
+  font-weight: 500;
+}
+.menu-who {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 .menu-name {
   font-weight: 500;
 }
 .menu-item {
-  display: block;
+  display: flex;
+  gap: 16px;
+  align-items: center;
   width: 100%;
   padding: 10px 16px;
   border: none;

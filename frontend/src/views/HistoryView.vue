@@ -62,17 +62,15 @@ async function clearAll() {
       <h1>История просмотра</h1>
       <p v-if="actionError" class="error" role="alert">{{ actionError }}</p>
 
-      <div v-for="video in items" :key="video.id" class="item">
-        <VideoCard :video="video" horizontal class="card" />
-        <button
-          type="button"
-          class="icon-btn"
-          aria-label="Убрать из истории"
-          @click="remove(video)"
-        >
-          <AppIcon name="close" :size="20" />
-        </button>
-      </div>
+      <VideoCard
+        v-for="video in items"
+        :key="video.id"
+        :video="video"
+        horizontal
+        class="item"
+        remove-label="Удалить из истории просмотра"
+        @remove="remove"
+      />
 
       <p v-if="done && !items.length" class="muted">
         {{ query ? 'Ничего не найдено' : 'История просмотра пуста' }}
@@ -118,14 +116,7 @@ h1 {
   font-weight: 500;
 }
 .item {
-  display: flex;
-  gap: 8px;
-  align-items: flex-start;
   margin-bottom: 16px;
-}
-.card {
-  flex: 1;
-  min-width: 0;
 }
 .side {
   position: sticky;

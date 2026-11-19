@@ -11,9 +11,12 @@ import SavePlaylistDialog from './SavePlaylistDialog.vue'
 
 const props = defineProps({
   video: { type: Object, required: true },
-  horizontal: Boolean, // результаты поиска: превью слева, текст справа
-  compact: Boolean, // правая колонка на странице просмотра
+  horizontal: Boolean,
+  compact: Boolean,
+  removeLabel: { type: String, default: '' },
+  hideWatchLater: Boolean,
 })
+const emit = defineEmits(['remove'])
 
 const route = useRoute()
 const router = useRouter()
@@ -64,6 +67,11 @@ async function share() {
   say(ok ? 'Ссылка скопирована' : 'Не удалось скопировать ссылку')
 }
 
+function removeItem() {
+  menuOpen.value = false
+  emit('remove', props.video)
+}
+
 function report() {
   menuOpen.value = false
   if (requireLogin()) reportOpen.value = true
@@ -71,7 +79,7 @@ function report() {
 </script>
 
 <template>
-  <article class="card" :class="{ horizontal, compact }">
+  <article class="card" :class="{ horizontal, compact, 'menu-open': menuOpen }">
     <RouterLink :to="`/watch/${video.id}`" class="thumb">
       <img :src="`/api/videos/${video.id}/thumbnail`" :alt="video.title" loading="lazy" />
       <span class="duration">{{ formatDuration(video.duration_seconds) }}</span>
@@ -107,7 +115,7 @@ function report() {
         </button>
         <div v-if="menuOpen" class="backdrop" @click="menuOpen = false" />
         <div v-if="menuOpen" class="menu" role="menu">
-          <button type="button" role="menuitem" class="item" @click="watchLater">
+          <button v-if="!props.hideWatchLater" type="button" role="menuitem" class="item" @click="watchLater">
             <AppIcon name="watchLater" :size="22" />
             <span>Смотреть позже</span>
           </button>
@@ -122,6 +130,10 @@ function report() {
           <button v-if="!isOwn" type="button" role="menuitem" class="item" @click="report">
             <AppIcon name="flag" :size="22" />
             <span>Пожаловаться</span>
+          </button>
+          <button v-if="removeLabel" type="button" role="menuitem" class="item" @click="removeItem">
+            <AppIcon name="delete" :size="22" />
+            <span>{{ removeLabel }}</span>
           </button>
         </div>
       </div>
@@ -158,6 +170,9 @@ function report() {
   height: 100%;
   object-fit: cover;
 }
+.card.menu-open {
+  z-index: 100;
+}
 .duration {
   position: absolute;
   right: 8px;
@@ -171,8 +186,10 @@ function report() {
 }
 .info {
   display: flex;
+  flex: 1;
   gap: 12px;
   min-width: 0;
+  margin-bottom: auto;
 }
 .avatar {
   display: grid;
@@ -213,11 +230,17 @@ function report() {
   margin-top: 4px;
   color: var(--link);
 }
-
 .menu-wrap {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 12;
+}
+.horizontal {
   position: relative;
-  flex: none;
-  align-self: flex-end;
+}
+.horizontal .text {
+  padding-right: 32px;
 }
 .burger {
   width: 32px;
@@ -232,8 +255,8 @@ function report() {
 .menu {
   position: absolute;
   right: 0;
-  bottom: 36px;
-  z-index: 11;
+  top: 36px;
+  z-index: 20;
   min-width: 240px;
   padding: 8px 0;
   border-radius: var(--radius);
@@ -256,7 +279,6 @@ function report() {
 .item:hover {
   background: var(--surface-hover);
 }
-
 .horizontal,
 .compact {
   flex-direction: row;
