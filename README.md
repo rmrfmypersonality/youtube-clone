@@ -125,7 +125,7 @@ install.sh          установка одной командой
 - [Архитектура](docs/architecture.md)
 - [База данных и ER-диаграмма](docs/db.md)
 - [Безопасность](docs/security.md)
-- [Работа с ИИ](docs/prompts/ai-workflow.md)
+- [Работа с ИИ](docs/ai-workflow.md)
 
 ## Ограничения
 
