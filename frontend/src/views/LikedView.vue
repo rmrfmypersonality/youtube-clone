@@ -47,14 +47,7 @@ async function unlike(video) {
     <p v-if="actionError" class="error" role="alert">{{ actionError }}</p>
     <div class="side"><PlaylistSidePanel v-if="playlist" :playlist="playlist" /></div>
     <div class="list">
-      <VideoCard
-        v-for="video in items"
-        :key="video.id"
-        :video="video"
-        horizontal
-        remove-label="Удалить из понравившихся"
-        @remove="unlike"
-      />
+      <VideoCard v-for="video in items" :key="video.id" :video="video" horizontal class="item" remove-label="Удалить из понравившихся" @remove="unlike"/>
       <p v-if="done && !items.length" class="muted">Здесь пока ничего нет</p>
       <InfiniteScroll :loading="loading" :done="done" :error="error" @load="loadMore" />
     </div>
