@@ -1,6 +1,6 @@
 # YouTube Clone
 
-Клон YouTube на Python (FastAPI) и Vue 3. Весь код написан с помощью ИИ, диалоги и обвязка лежат в
+Клон YouTube на Python (FastAPI) и Vue 3. В работе использовалось ИИ, диалоги и обвязка лежат в
 [`docs/prompts/`](docs/prompts/), описание процесса в [`docs/ai-workflow.md`](docs/ai-workflow.md).
 
 Что есть: регистрация и вход, загрузка видео с прогрессом и фоновой обработкой (720p, 360p, превью),
